@@ -1,0 +1,70 @@
+<!-- res/layout/activity_info.xml -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="24dp"
+    android:gravity="center"
+    android:backgroundTint="@color/button_background_color"
+    android:background="@drawable/info_background">
+
+
+    <ImageView
+        android:id="@+id/iv_logo"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:src="@drawable/exclamation"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="24dp"
+        >
+
+    </ImageView>
+
+    <TextView
+        android:id="@+id/tv_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Welcome to MeshTactic!"
+        android:textSize="18sp"
+        android:textColor="@color/white"
+        android:textStyle="bold"
+        android:gravity="center" />
+
+    <TextView
+        android:id="@+id/permissions_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="This app requires Location and Notification permissions to function properly. Please enable them to ensure full functionality without these permissions, the app will not work as intended."
+        android:textSize="18sp"
+        android:textColor="@color/white"
+        android:layout_margin="10dp"
+        android:gravity="center" />
+
+
+    <TextView
+        android:id="@+id/text_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="This is version 1.0 of the app. You may encounter some bugs or unfinished features. If you notice any issues, please report them on our GitHub."
+        android:textSize="18sp"
+        android:textColor="@color/white"
+        android:layout_margin="10dp"
+        android:gravity="center" />
+
+    <TextView
+        android:id="@+id/thanks_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Thanks for trying it out."
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/white"
+        android:gravity="center" />
+
+    <Button
+        android:id="@+id/btn_continue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Continue"
+        android:backgroundTint="@color/green"
+        android:layout_marginTop="24dp" />
+</LinearLayout>

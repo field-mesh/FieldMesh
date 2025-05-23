@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="addPin" type="id"/>
+    <item name="addLine" type="id"/>
+    <item name="addPolygon" type="id"/>
+    <item name="addCircle" type="id"/>
+</resources>

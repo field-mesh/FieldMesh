@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <org.osmdroid.views.MapView
+        android:id="@+id/mapview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:id="@+id/satellite_status_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentLeft="true"
+        android:layout_marginTop="16dp"
+        android:layout_marginLeft="16dp"
+        android:background="@color/button_background_color"
+        android:padding="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/my_node_id"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="My ID: N/A"
+            android:textSize="12sp"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:id="@+id/mesh_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Mesh: N/A"
+            android:textSize="12sp"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:id="@+id/tv_sync_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sync: N/A"
+            android:textSize="12sp"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:id="@+id/mesh_node_number"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nodes: N/A"
+            android:textSize="12sp"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:id="@+id/tv_satellite_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="GPS: Not Available"
+            android:textSize="12sp"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:id="@+id/tv_num_satellites"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Satellites: 0"
+            android:textSize="12sp"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:id="@+id/tv_accuracy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Accuracy: N/A"
+            android:textSize="12sp"
+            android:textColor="@android:color/white" />
+
+
+
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/button_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:orientation="vertical">
+
+        <ImageButton
+            android:id="@+id/btn_open_mesh"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:contentDescription="Open Meshtastic"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:padding="8dp"
+            android:src="@drawable/meshtactic_logo" />
+
+        <ImageButton
+            android:id="@+id/btn_tile_toggle"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/layers_icon"
+            android:padding="5dp"
+            android:contentDescription="Toggle Tiles" />
+
+        <ImageButton
+            android:id="@+id/btn_follow_toggle"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="5dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/current_location_icon"
+            android:contentDescription="Toggle Follow" />
+
+        <ImageButton
+            android:id="@+id/btn_rotate_toggle"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/compass_icon"
+            android:padding="5dp"
+            android:contentDescription="Toggle Rotate/North Up" />
+    </LinearLayout>
+
+
+
+    <ImageButton
+        android:id="@+id/btn_Toggle_Tools"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/button_round_background"
+        android:backgroundTint="@color/green"
+        android:clickable="true"
+        android:focusable="true"
+        android:scaleType="fitCenter"
+        android:src="@drawable/plus"
+        android:padding="10dp"
+        android:layout_marginBottom="16dp"
+        android:layout_margin="16dp"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentBottom="true"/>
+
+
+    <LinearLayout
+        android:id="@+id/tools_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:paddingRight="60dp"
+        android:layout_margin="16dp"
+        android:layout_alignParentBottom="true"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/btn_circle_add"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/addcircle"
+            android:layout_marginRight="10dp"
+            android:padding="10dp"/>
+
+        <ImageButton
+            android:id="@+id/btn_poly_add"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/addpolly"
+            android:layout_marginRight="10dp"
+            android:padding="10dp"
+            android:contentDescription="Toggle Rotate/North Up" />
+
+        <ImageButton
+            android:id="@+id/btn_line_add"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/addline"
+            android:layout_marginRight="10dp"
+            android:padding="10dp"
+            android:contentDescription="Toggle Rotate/North Up" />
+
+        <ImageButton
+            android:id="@+id/btn_pin_add"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/addpin"
+            android:padding="10dp"
+            android:contentDescription="Toggle Rotate/North Up" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/editingTools"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:layout_marginBottom="16dp"
+        android:layout_marginLeft="16dp"
+        android:visibility="gone"
+        android:orientation="vertical">
+
+        <ImageButton
+            android:id="@+id/undo"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/undo"
+            android:layout_marginBottom="16dp"
+            android:padding="10dp"/>
+
+        <ImageButton
+            android:id="@+id/close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/close"
+            android:backgroundTint="@color/red"
+            android:layout_marginBottom="16dp"
+            android:padding="10dp"/>
+
+        <ImageButton
+            android:id="@+id/done"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/done"
+            android:backgroundTint="@color/green"
+            android:padding="10dp"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:layout_marginBottom="16dp"
+        android:layout_marginLeft="16dp"
+        android:visibility="visible"
+        android:orientation="vertical">
+
+
+
+        <ImageButton
+            android:id="@+id/infoButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/info"
+            android:padding="10dp"/>
+    </LinearLayout>
+
+
+</RelativeLayout>
