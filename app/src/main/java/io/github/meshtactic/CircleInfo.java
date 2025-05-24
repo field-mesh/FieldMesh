@@ -1,4 +1,4 @@
-package com.clustra.meshtactic;
+package io.github.meshtactic;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -42,7 +42,7 @@ public class CircleInfo {
         if (color >= 0 && color <= 3) {
             this.color = color;
         } else {
-            throw new IllegalArgumentException(String.valueOf(com.clustra.meshtactic.R.string.intValueRangeWarning));
+            throw new IllegalArgumentException(String.valueOf(io.github.meshtactic.R.string.intValueRangeWarning));
         }
     }
 
@@ -54,7 +54,7 @@ public class CircleInfo {
         if (lineType >= 0 && lineType <= 1) {
             this.lineType = lineType;
         } else {
-            throw new IllegalArgumentException(String.valueOf(com.clustra.meshtactic.R.string.lineTypeWarning));
+            throw new IllegalArgumentException(String.valueOf(io.github.meshtactic.R.string.lineTypeWarning));
         }
     }
 

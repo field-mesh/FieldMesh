@@ -1,4 +1,4 @@
-package com.clustra.meshtactic;
+package io.github.meshtactic;
 
 import android.os.RemoteException;
 import android.util.Log;

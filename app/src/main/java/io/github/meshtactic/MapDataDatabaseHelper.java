@@ -1,4 +1,4 @@
-package com.clustra.meshtactic;
+package io.github.meshtactic;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -8,7 +8,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
 
-import com.clustra.meshtactic.ui.UuidData;
+import io.github.meshtactic.ui.UuidData;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;

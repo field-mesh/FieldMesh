@@ -1,4 +1,4 @@
-package com.clustra.meshtactic;
+package io.github.meshtactic;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -23,7 +23,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
-import com.clustra.meshtactic.ui.UuidData;
+import io.github.meshtactic.ui.UuidData;
 import com.geeksville.mesh.DataPacket;
 import com.geeksville.mesh.IMeshService;
 

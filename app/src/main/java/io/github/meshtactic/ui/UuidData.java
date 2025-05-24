@@ -1,4 +1,4 @@
-package com.clustra.meshtactic.ui;
+package io.github.meshtactic.ui;
 
 public class UuidData {
     // Instance fields (removed 'static')

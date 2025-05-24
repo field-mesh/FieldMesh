@@ -1,4 +1,4 @@
-package com.clustra.meshtactic;
+package io.github.meshtactic;
 
 public class DecodedDBHash {
     public final long timestamp;

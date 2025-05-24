@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.clustra.meshtactic'
+    namespace 'io.github.meshtactic'
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.clustra.meshtactic"
+        applicationId "io.github.meshtactic"
         minSdk 23
         //noinspection ExpiredTargetSdkVersion
         targetSdk 23

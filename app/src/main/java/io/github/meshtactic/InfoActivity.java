@@ -1,4 +1,4 @@
-package com.clustra.meshtactic;
+package io.github.meshtactic;
 
 import android.content.Intent;
 import android.content.SharedPreferences;

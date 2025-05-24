@@ -1,4 +1,4 @@
-package com.clustra.meshtactic.ui.theme
+package io.github.meshtactic.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

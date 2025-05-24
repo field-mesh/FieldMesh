@@ -1,4 +1,4 @@
-package com.clustra.meshtactic;
+package io.github.meshtactic;
 
 import java.util.ArrayList;
 import java.util.Arrays;
