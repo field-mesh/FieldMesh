@@ -24,8 +24,6 @@
 -keep class com.google.protobuf.** { *; }
 -keep class com.geeksville.mesh.** { *; }
 
-# eclipse.paho.client
--keep class org.eclipse.paho.client.mqttv3.logging.JSR47Logger { *; }
 
 # ormlite
 -dontwarn com.j256.ormlite.**

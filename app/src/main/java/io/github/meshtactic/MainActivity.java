@@ -327,7 +327,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         infoButton.setOnClickListener(v -> {
             AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
             builder.setTitle("About & Support");
-            builder.setIcon(R.drawable.meshtactic);
+            builder.setIcon(R.drawable.meshtacticlogo);
             String authorName = "Your Name / Alias";
             String githubLink = "https://github.com/meshtactic/Meshtactic/";
             String patreonLink = "https://patreon.com/Meshtactic";

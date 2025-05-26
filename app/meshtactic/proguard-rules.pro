@@ -19,3 +19,26 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Needed for protobufs
+-keep class com.google.protobuf.** { *; }
+-keep class com.geeksville.mesh.** { *; }
+
+
+# ormlite
+-dontwarn com.j256.ormlite.**
+
+# OkHttp
+-dontwarn okhttp3.internal.platform.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
+
+# ?
+-dontwarn java.awt.image.**
+-dontwarn java.lang.reflect.**
+-dontwarn com.google.errorprone.annotations.**
+
+# Our app is opensource no need to obsfucate
+-dontobfuscate
+-optimizations !code/simplification/arithmetic,!field/*,!class/merging/*,!code/allocation/variable
