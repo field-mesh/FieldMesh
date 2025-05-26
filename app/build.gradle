@@ -151,6 +151,7 @@ dependencies {
     implementation(libs.bundles.ui)
     implementation libs.material
     implementation libs.activity
+    implementation libs.play.services.location
     debugImplementation(libs.bundles.ui.tooling)
     implementation(libs.bundles.lifecycle)
     implementation(libs.bundles.navigation)

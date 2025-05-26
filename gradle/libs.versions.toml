@@ -51,7 +51,8 @@ zxing-android-embedded = "4.3.0"
 #noinspection GradleDependency
 zxing-core = "3.3.0"
 play-services-wearable = "19.0.0"
-activity = "1.10.1" #do not update
+activity = "1.10.1"
+play-services-location = "21.3.0" #do not update
 
 [libraries]
 agp = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -137,6 +138,7 @@ play-services-wearable = { group = "com.google.android.gms", name = "play-servic
 ui = { group = "androidx.compose.ui", name = "ui" }
 ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "play-services-location" }
 
 
 [bundles]

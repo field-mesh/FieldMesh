@@ -860,6 +860,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             ColorItem selectedColorItem = colorItems.get(which);
             int actualColorValue = ContextCompat.getColor(this, selectedColorItem.getColorResourceId());
             int colorIndex = ColorIndex.getIndexByColorId(selectedColorItem.getColorResourceId());
+            boolean dataChangedForWear = false;
 
             if (IS_EDIT_MODE == EDIT_MODE_CIRCLE && pendingShapeCenter != null && pendingShapeRadius > 0) {
                 CircleInfo circleInfo = new CircleInfo();
@@ -880,6 +881,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     mapView.getOverlays().remove(temporaryCircleCenterMarker);
                     temporaryCircleCenterMarker = null;
                 }
+                dataChangedForWear = true;
             } else if (IS_EDIT_MODE == EDIT_MODE_LINE && currentLinePoints.size() >= 2) {
                 LineInfo lineInfo = new LineInfo();
                 drawFinalLine(new ArrayList<>(currentLinePoints), actualColorValue, lineInfo.getUniqueId());
@@ -891,6 +893,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 mapDataDbHelper.addLine(lineInfo);
                 Toast.makeText(this, "Line added.", Toast.LENGTH_SHORT).show();
                 clearTemporaryLineState();
+                dataChangedForWear = true;
             } else if (IS_EDIT_MODE == EDIT_MODE_POLY && currentPolygonPoints.size() >= 3) {
                 PolygonInfo polyInfo = new PolygonInfo();
                 drawFinalPolygon(new ArrayList<>(currentPolygonPoints), actualColorValue, polyInfo.getUniqueId());
@@ -902,8 +905,16 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 mapDataDbHelper.addPolygon(polyInfo);
                 Toast.makeText(this, "Polygon added.", Toast.LENGTH_SHORT).show();
                 clearTemporaryPolygonState();
+                dataChangedForWear = true;
             }
             resetEditingMode();
+
+            if (dataChangedForWear) {
+                Intent syncIntent = new Intent(this, MeshReceiverService.class);
+                syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
+                startService(syncIntent);
+                Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after shape add/modify.");
+            }
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> {
@@ -994,6 +1005,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                                 if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
                                     MeshtasticConnector.sendDeleteCommand(geeksvilleMeshServiceActivity, polygon.getId());
                                 }
+                                Intent syncIntent = new Intent(this, MeshReceiverService.class);
+                                syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
+                                startService(syncIntent);
+                                Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after circle removal.");
                             }
                             mv.invalidate();
                         })
@@ -1038,6 +1053,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                                 if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
                                     MeshtasticConnector.sendDeleteCommand(geeksvilleMeshServiceActivity, polyline.getId());
                                 }
+                                Intent syncIntent = new Intent(this, MeshReceiverService.class);
+                                syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
+                                startService(syncIntent);
+                                Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after line removal.");
                             }
                             mv.invalidate();
                         })
@@ -1087,6 +1106,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                                 if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
                                     MeshtasticConnector.sendDeleteCommand(geeksvilleMeshServiceActivity, poly.getId());
                                 }
+                                Intent syncIntent = new Intent(this, MeshReceiverService.class);
+                                syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
+                                startService(syncIntent);
+                                Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after polygon removal.");
                             }
                             mv.invalidate();
                         })
@@ -1188,6 +1211,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             }
             Toast.makeText(this, "Pin added and sent.", Toast.LENGTH_SHORT).show();
             resetEditingMode();
+
+            Intent syncIntent = new Intent(this, MeshReceiverService.class);
+            syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
+            startService(syncIntent);
+            Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after pin add.");
         });
         builder.setNegativeButton("Cancel", (dialog, which) -> {
             Toast.makeText(MainActivity.this, "Pin creation cancelled.", Toast.LENGTH_SHORT).show();
@@ -1366,6 +1394,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 MeshtasticConnector.sendDeleteCommand(geeksvilleMeshServiceActivity, uuid);
             }
             Toast.makeText(this, "Pin '" + markerToRemove.getTitle() + "' removed.", Toast.LENGTH_SHORT).show();
+
+            Intent syncIntent = new Intent(this, MeshReceiverService.class);
+            syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
+            startService(syncIntent);
+            Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after pin removal.");
         } else {
             Log.w(TAG, "Attempted to remove a pin that was not on the map's overlay list: " + uuid);
         }
@@ -1436,6 +1469,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         loadSavedCircles();
         Log.i(TAG, "Activity: Finished loading all saved map data.");
         if (mapView != null) mapView.invalidate();
+
+        Intent syncIntent = new Intent(this, MeshReceiverService.class);
+        syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
+        startService(syncIntent);
+        Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after loadAllMapData.");
     }
 
     private void clearVisualMapObjects() {
@@ -1682,6 +1720,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             try { updateTopBarInfoDisplay(); } catch (RemoteException e) { Log.e(TAG, "RemoteEx onLocationChanged", e); }
         }
         if(mapView != null) mapView.invalidate();
+        Intent locationIntent = new Intent(this, MeshReceiverService.class);
+        locationIntent.setAction(MeshReceiverService.ACTION_FORWARD_PHONE_LOCATION);
+        locationIntent.putExtra(MeshReceiverService.EXTRA_LOCATION, location);
+        startService(locationIntent);
+        Log.d(TAG, "Sent ACTION_FORWARD_PHONE_LOCATION to MeshReceiverService.");
     }
 
 

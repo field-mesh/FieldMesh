@@ -19,8 +19,12 @@ It's an ideal companion for outdoor enthusiasts, airsoft players, search and res
 
 * **Intuitive Mapping Interface:** User-friendly map display for clear visualization of your surroundings and team positions.
 
+* **Android Wear Support:** from old to new devices you can have the map data displayed on your watch.
+
 ## Screenshots
 ![Meshtactic Screenshot](doc/screenshot.png)
+![Meshtactic Screenshot](doc/wearscreenshot.png)
+
 
 ## Why MeshTactic?
 
@@ -67,6 +71,8 @@ Contributions are welcome! Still working on the details of this but fell free to
 ## Disclaimer
 
 I am a one man army here the app in its current will have bugs, if you find one create an issue with the details, this will really help the project. 
+
+This was only tested using a max of 2 nodes if you have more please test and report results.
 
 ## License
 

@@ -1,5 +1,6 @@
 package io.github.meshtactic;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -11,6 +12,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -19,23 +23,49 @@ import android.os.Looper;
 import android.os.RemoteException;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
-import io.github.meshtactic.ui.UuidData;
 import com.geeksville.mesh.DataPacket;
 import com.geeksville.mesh.IMeshService;
+import com.geeksville.mesh.NodeInfo;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
+import com.google.android.gms.wearable.MessageClient;
+import com.google.android.gms.wearable.MessageEvent;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.Wearable;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.osmdroid.util.GeoPoint;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
-public class MeshReceiverService extends Service {
+import io.github.meshtactic.ui.UuidData;
+
+public class MeshReceiverService extends Service implements MessageClient.OnMessageReceivedListener {
     private static final String TAG = "MeshReceiverService";
     public static final String ACTION_MAP_DATA_REFRESH = "com.clustra.meshtactic.ACTION_MAP_DATA_REFRESH";
     public static final String ACTION_SYNC_STATUS_UPDATE = "com.clustra.meshtactic.ACTION_SYNC_STATUS_UPDATE";
     public static final String EXTRA_SYNC_STATUS_MESSAGE = "com.clustra.meshtactic.EXTRA_SYNC_STATUS_MESSAGE";
+
+    public static final String ACTION_FORWARD_PHONE_LOCATION = "io.github.meshtactic.ACTION_FORWARD_PHONE_LOCATION";
+    public static final String EXTRA_LOCATION = "io.github.meshtactic.EXTRA_LOCATION";
+    public static final String ACTION_TRIGGER_WEAR_MAP_SYNC = "io.github.meshtactic.ACTION_TRIGGER_WEAR_MAP_SYNC";
+
 
     private static final String CHANNEL_ID = "MeshReceiverServiceChannel";
 
@@ -64,6 +94,24 @@ public class MeshReceiverService extends Service {
     private Runnable dbHashUpdateRunnable;
     private static final long DB_HASH_SEND_INTERVAL_MS = 1 * 60 * 1000;
 
+    private Handler periodicNodeLocationUpdateHandler;
+    private Runnable nodeLocationUpdateRunnable;
+    private static final long NODE_LOCATION_UPDATE_INTERVAL_MS = 30 * 1000;
+
+    private MessageClient messageClientToWear;
+    private String wearNodeId = null;
+    private static final String PATH_REQUEST_FULL_SYNC_FROM_WEAR = "/meshtactic/request_full_sync";
+    private static final String PATH_MAP_DATA_BATCH_TO_WEAR = "/meshtactic/map_data_batch";
+    private static final String PATH_PHONE_LOCATION_UPDATE_TO_WEAR = "/meshtactic/phone_location_update";
+    private static final String PATH_NODE_LOCATIONS_UPDATE_TO_WEAR = "/meshtactic/node_locations_update";
+
+
+    private FusedLocationProviderClient fusedLocationClient;
+    private LocationCallback locationCallback;
+    private LocationRequest locationRequest;
+    private static final long LOCATION_UPDATE_INTERVAL_MS = 30000;
+    private static final long FASTEST_LOCATION_UPDATE_INTERVAL_MS = 15000;
+
 
     private final ServiceConnection geeksvilleServiceConnection = new ServiceConnection() {
         @Override
@@ -72,6 +120,7 @@ public class MeshReceiverService extends Service {
             geeksvilleMeshService = IMeshService.Stub.asInterface(service);
             isGeeksvilleMeshServiceBound = true;
             startPeriodicDBHashUpdate();
+            startPeriodicNodeLocationUpdate();
         }
 
         @Override
@@ -80,6 +129,7 @@ public class MeshReceiverService extends Service {
             geeksvilleMeshService = null;
             isGeeksvilleMeshServiceBound = false;
             stopPeriodicDBHashUpdate();
+            stopPeriodicNodeLocationUpdate();
         }
     };
 
@@ -465,6 +515,7 @@ public class MeshReceiverService extends Service {
 
                 if (dataChanged) {
                     sendMapDataRefreshBroadcast();
+                    triggerWearMapSyncInternal();
                 }
             }
         }
@@ -478,9 +529,7 @@ public class MeshReceiverService extends Service {
         currentDataRequestRetries = 0;
         itemsToRequestFromPeer.clear();
         fullPeerUuidList.clear();
-        currentlyAccumulatingPeerUuidList.clear();
-        expectedTotalChunksForPeerUuidList = 0;
-        receivedChunkCountForPeerUuidList = 0;
+        currentlyAccumulatingPeerUuidList.clear(); expectedTotalChunksForPeerUuidList = 0; receivedChunkCountForPeerUuidList = 0;
         sendSyncStatusUpdate("syncing");
         MeshtasticConnector.sendData(geeksvilleMeshService, new byte[0], "REQUEST_UUID_LIST", syncingWithNodeId);
     }
@@ -493,6 +542,7 @@ public class MeshReceiverService extends Service {
         }
         resetSyncState();
         sendMapDataRefreshBroadcast();
+        triggerWearMapSyncInternal();
     }
 
 
@@ -508,7 +558,7 @@ public class MeshReceiverService extends Service {
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("MeshTactic Sync")
-                .setContentText("Listening for mesh data.")
+                .setContentText("Listening for mesh data and tracking location.")
                 .setSmallIcon(R.drawable.radio)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
@@ -525,12 +575,42 @@ public class MeshReceiverService extends Service {
 
         dataRequestTimeoutHandler = new Handler(Looper.getMainLooper());
         periodicDBHashUpdateHandler = new Handler(Looper.getMainLooper());
+        periodicNodeLocationUpdateHandler = new Handler(Looper.getMainLooper());
+
         bindToGeeksvilleMeshService();
+
+        messageClientToWear = Wearable.getMessageClient(this);
+        messageClientToWear.addListener(this);
+        findWearableNode();
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        createLocationRequest();
+        createLocationCallback();
+        startInternalLocationUpdates();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "MeshReceiverService onStartCommand");
+        Log.d(TAG, "MeshReceiverService onStartCommand, Action: " + (intent != null ? intent.getAction() : "null intent"));
+        if (intent != null) {
+            String action = intent.getAction();
+            if (ACTION_FORWARD_PHONE_LOCATION.equals(action)) {
+                Location location = null;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    location = intent.getParcelableExtra(EXTRA_LOCATION, Location.class);
+                } else {
+                    location = intent.getParcelableExtra(EXTRA_LOCATION);
+                }
+                if (location != null) {
+                    sendLocationToWearInternal(location, this.wearNodeId);
+                } else {
+                    Log.w(TAG, "Received ACTION_FORWARD_PHONE_LOCATION but location extra was null.");
+                }
+            } else if (ACTION_TRIGGER_WEAR_MAP_SYNC.equals(action)) {
+                Log.i(TAG, "Received ACTION_TRIGGER_WEAR_MAP_SYNC from MainActivity.");
+                triggerWearMapSyncInternal();
+            }
+        }
         return START_STICKY;
     }
 
@@ -541,7 +621,7 @@ public class MeshReceiverService extends Service {
                     "Meshtactic Sync Service",
                     NotificationManager.IMPORTANCE_LOW
             );
-            serviceChannel.setDescription("Channel for Meshtactic background data sync.");
+            serviceChannel.setDescription("Channel for Meshtactic background data sync and location tracking.");
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(serviceChannel);
@@ -581,6 +661,109 @@ public class MeshReceiverService extends Service {
             Log.d(TAG, "Service: Stopped periodic DB Hash update.");
         }
     }
+
+    private void startPeriodicNodeLocationUpdate() {
+        if (nodeLocationUpdateRunnable == null) {
+            nodeLocationUpdateRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (isGeeksvilleMeshServiceBound && geeksvilleMeshService != null && wearNodeId != null) {
+                        fetchAndSendNodeLocationsToWear();
+                    } else {
+                        if (!isGeeksvilleMeshServiceBound || geeksvilleMeshService == null) {
+                            Log.w(TAG, "NodeLocationUpdate: Geeksville service not bound. Skipping update.");
+                        }
+                        if (wearNodeId == null) {
+                            Log.w(TAG, "NodeLocationUpdate: Wear node ID is null. Skipping update, attempting to find node.");
+                            findWearableNode();
+                        }
+                    }
+                    if (periodicNodeLocationUpdateHandler != null) {
+                        periodicNodeLocationUpdateHandler.postDelayed(this, NODE_LOCATION_UPDATE_INTERVAL_MS);
+                    }
+                }
+            };
+        }
+        periodicNodeLocationUpdateHandler.removeCallbacks(nodeLocationUpdateRunnable);
+        periodicNodeLocationUpdateHandler.post(nodeLocationUpdateRunnable);
+        Log.d(TAG, "Service: Started periodic Node Location update for Wear.");
+    }
+
+    private void stopPeriodicNodeLocationUpdate() {
+        if (periodicNodeLocationUpdateHandler != null && nodeLocationUpdateRunnable != null) {
+            periodicNodeLocationUpdateHandler.removeCallbacks(nodeLocationUpdateRunnable);
+            Log.d(TAG, "Service: Stopped periodic Node Location update for Wear.");
+        }
+    }
+
+
+    private void fetchAndSendNodeLocationsToWear() {
+        try {
+            if (geeksvilleMeshService == null || !isGeeksvilleMeshServiceBound) {
+                Log.w(TAG, "fetchAndSendNodeLocationsToWear: Geeksville service not available.");
+                return;
+            }
+            if (wearNodeId == null) {
+                Log.w(TAG, "fetchAndSendNodeLocationsToWear: Wear node ID is null.");
+                findWearableNode();
+                return;
+            }
+
+            List<NodeInfo> nodes = geeksvilleMeshService.getNodes();
+            if (nodes == null || nodes.isEmpty()) {
+                Log.d(TAG, "fetchAndSendNodeLocationsToWear: No nodes found or list is null.");
+                messageClientToWear.sendMessage(wearNodeId, PATH_NODE_LOCATIONS_UPDATE_TO_WEAR, new JSONArray().toString().getBytes())
+                        .addOnSuccessListener(result -> Log.d(TAG, "Service: Empty node locations list sent to Wear."))
+                        .addOnFailureListener(e -> Log.w(TAG, "Service: Failed to send empty node locations list to Wear.", e));
+                return;
+            }
+
+            String myNodeId = geeksvilleMeshService.getMyId();
+            JSONArray nodesJsonArray = new JSONArray();
+            long currentTimeSeconds = System.currentTimeMillis() / 1000L;
+            long fiveMinutesInSeconds = TimeUnit.MINUTES.toSeconds(5);
+
+            for (NodeInfo node : nodes) {
+                if (node == null || node.getUser() == null || node.getPosition() == null ||
+                        Objects.equals(myNodeId, node.getUser().getId())) {
+                    continue;
+                }
+
+                JSONObject nodeJson = new JSONObject();
+                nodeJson.put("id", node.getUser().getId());
+                nodeJson.put("shortName", node.getUser().getShortName());
+                nodeJson.put("longName", node.getUser().getLongName());
+                nodeJson.put("lat", node.getPosition().getLatitude());
+                nodeJson.put("lon", node.getPosition().getLongitude());
+                long nodePositionTimeSeconds = node.getPosition().getTime();
+                nodeJson.put("positionTime", nodePositionTimeSeconds);
+                nodeJson.put("isOld", (currentTimeSeconds - nodePositionTimeSeconds) > fiveMinutesInSeconds);
+
+                nodesJsonArray.put(nodeJson);
+            }
+
+            if (nodesJsonArray.length() > 0) {
+                String jsonDataString = nodesJsonArray.toString();
+                Log.d(TAG, "Service: Sending " + nodesJsonArray.length() + " node locations to Wear: " + wearNodeId);
+                messageClientToWear.sendMessage(wearNodeId, PATH_NODE_LOCATIONS_UPDATE_TO_WEAR, jsonDataString.getBytes())
+                        .addOnSuccessListener(result -> Log.d(TAG, "Service: Node locations sent to Wear successfully."))
+                        .addOnFailureListener(e -> Log.e(TAG, "Service: Failed to send node locations to Wear.", e));
+            } else {
+                Log.d(TAG, "fetchAndSendNodeLocationsToWear: No eligible nodes to send after filtering.");
+                messageClientToWear.sendMessage(wearNodeId, PATH_NODE_LOCATIONS_UPDATE_TO_WEAR, new JSONArray().toString().getBytes())
+                        .addOnSuccessListener(result -> Log.d(TAG, "Service: Empty node locations list (post-filter) sent to Wear."))
+                        .addOnFailureListener(e -> Log.w(TAG, "Service: Failed to send empty node locations list (post-filter) to Wear.", e));
+            }
+
+        } catch (RemoteException e) {
+            Log.e(TAG, "fetchAndSendNodeLocationsToWear: RemoteException: " + e.toString());
+        } catch (JSONException e) {
+            Log.e(TAG, "fetchAndSendNodeLocationsToWear: JSONException: " + e.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "fetchAndSendNodeLocationsToWear: Exception: " + e.toString(), e);
+        }
+    }
+
 
     private void resetSyncState() {
         Log.i(TAG, "Service: Resetting DB Sync state. Was syncing with: " + syncingWithNodeId);
@@ -670,10 +853,239 @@ public class MeshReceiverService extends Service {
         return nodeId.length() > 8 ? "!" + nodeId.substring(nodeId.length() - 4) : nodeId;
     }
 
+    private void findWearableNode() {
+        Wearable.getNodeClient(this).getConnectedNodes().addOnSuccessListener(nodes -> {
+            if (nodes != null && !nodes.isEmpty()) {
+                this.wearNodeId = nodes.get(0).getId();
+                Log.i(TAG, "Service: Found connected Wear OS node: " + this.wearNodeId + " (" + nodes.get(0).getDisplayName() + ")");
+                triggerWearMapSyncInternal();
+            } else {
+                Log.w(TAG, "Service: No Wear OS nodes connected.");
+                this.wearNodeId = null;
+            }
+        }).addOnFailureListener(e -> {
+            Log.e(TAG, "Service: Failed to get connected Wear OS nodes.", e);
+            this.wearNodeId = null;
+        });
+    }
+
+    @Override
+    public void onMessageReceived(@NonNull MessageEvent messageEvent) {
+        Log.i(TAG, "Service: Message received from Wear: " + messageEvent.getSourceNodeId() + ", Path: " + messageEvent.getPath());
+        if (PATH_REQUEST_FULL_SYNC_FROM_WEAR.equals(messageEvent.getPath())) {
+            Log.i(TAG, "Service: Wear device requested full map data sync.");
+            this.wearNodeId = messageEvent.getSourceNodeId();
+            sendAllMapDataToWearInternal(this.wearNodeId);
+            if (isGeeksvilleMeshServiceBound && geeksvilleMeshService != null) {
+                fetchAndSendNodeLocationsToWear();
+            }
+        }
+    }
+
+    private void triggerWearMapSyncInternal() {
+        if (this.wearNodeId != null) {
+            Log.d(TAG, "Service: Triggering map data sync to Wear node: " + this.wearNodeId);
+            sendAllMapDataToWearInternal(this.wearNodeId);
+            if (isGeeksvilleMeshServiceBound && geeksvilleMeshService != null) {
+                fetchAndSendNodeLocationsToWear();
+            }
+        } else {
+            Log.w(TAG, "Service: Cannot trigger Wear sync, wearNodeId is null. Attempting to find node.");
+            findWearableNode();
+        }
+    }
+
+    private void sendAllMapDataToWearInternal(String nodeId) {
+        if (nodeId == null) {
+            Log.w(TAG, "Service: Cannot send map data to Wear, node ID is null. Attempting to find node if not already trying.");
+            if (this.wearNodeId == null) findWearableNode();
+            return;
+        }
+        if (mapDataDbHelper == null) {
+            Log.e(TAG, "Service: mapDataDbHelper is null, cannot send data to Wear.");
+            return;
+        }
+        if (messageClientToWear == null) {
+            Log.e(TAG, "Service: messageClientToWear is null, cannot send data to Wear.");
+            return;
+        }
+
+        Log.i(TAG, "Service: Preparing to send all map data to Wear node: " + nodeId);
+        JSONObject batchData = new JSONObject();
+        try {
+            JSONArray pinsJsonArray = new JSONArray();
+            List<PinInfo> allPins = mapDataDbHelper.getAllPins();
+            for (PinInfo pin : allPins) {
+                JSONObject pinJson = new JSONObject();
+                pinJson.put("uuid", pin.getUniqueId());
+                pinJson.put("lat", pin.getLatitude());
+                pinJson.put("lon", pin.getLongitude());
+                pinJson.put("color", ContextCompat.getColor(this, ColorIndex.getColorByIndex(pin.getColor())));
+                pinJson.put("label", pin.getLabel());
+                pinJson.put("iconIndex", pin.getIconResourceId());
+                pinsJsonArray.put(pinJson);
+            }
+            batchData.put("pins", pinsJsonArray);
+
+            JSONArray linesJsonArray = new JSONArray();
+            List<LineInfo> allLines = mapDataDbHelper.getAllLines();
+            for (LineInfo line : allLines) {
+                JSONObject lineJson = new JSONObject();
+                lineJson.put("uuid", line.getUniqueId());
+                JSONArray pointsArray = new JSONArray();
+                if (line.getPoints() != null) {
+                    for (GeoPoint gp : line.getPoints()) {
+                        JSONObject pointJson = new JSONObject();
+                        pointJson.put("lat", gp.getLatitude());
+                        pointJson.put("lon", gp.getLongitude());
+                        pointsArray.put(pointJson);
+                    }
+                }
+                lineJson.put("points", pointsArray);
+                lineJson.put("color", ContextCompat.getColor(this, ColorIndex.getColorByIndex(line.getColor())));
+                linesJsonArray.put(lineJson);
+            }
+            batchData.put("lines", linesJsonArray);
+
+            JSONArray polygonsJsonArray = new JSONArray();
+            List<PolygonInfo> allPolygons = mapDataDbHelper.getAllPolygons();
+            for (PolygonInfo poly : allPolygons) {
+                JSONObject polyJson = new JSONObject();
+                polyJson.put("uuid", poly.getUniqueId());
+                JSONArray pointsArray = new JSONArray();
+                if (poly.getPoints() != null) {
+                    for (GeoPoint gp : poly.getPoints()) {
+                        JSONObject pointJson = new JSONObject();
+                        pointJson.put("lat", gp.getLatitude());
+                        pointJson.put("lon", gp.getLongitude());
+                        pointsArray.put(pointJson);
+                    }
+                }
+                polyJson.put("points", pointsArray);
+                int baseColorPoly = ContextCompat.getColor(this, ColorIndex.getColorByIndex(poly.getColor()));
+                polyJson.put("strokeColor", baseColorPoly);
+                polyJson.put("fillColor", Color.argb(100, Color.red(baseColorPoly), Color.green(baseColorPoly), Color.blue(baseColorPoly)));
+                polygonsJsonArray.put(polyJson);
+            }
+            batchData.put("polygons", polygonsJsonArray);
+
+            JSONArray circlesJsonArray = new JSONArray();
+            List<CircleInfo> allCircles = mapDataDbHelper.getAllCircles();
+            for (CircleInfo circle : allCircles) {
+                JSONObject circleJson = new JSONObject();
+                circleJson.put("uuid", circle.getUniqueId());
+                circleJson.put("lat", circle.getLatitude());
+                circleJson.put("lon", circle.getLongitude());
+                circleJson.put("radius", circle.getRadius());
+                int baseColorCircle = ContextCompat.getColor(this, ColorIndex.getColorByIndex(circle.getColor()));
+                circleJson.put("strokeColor", baseColorCircle);
+                circleJson.put("fillColor", Color.argb(80, Color.red(baseColorCircle), Color.green(baseColorCircle), Color.blue(baseColorCircle)));
+                circlesJsonArray.put(circleJson);
+            }
+            batchData.put("circles", circlesJsonArray);
+
+            String jsonDataString = batchData.toString();
+            Log.d(TAG, "Service: Sending JSON to Wear (" + nodeId + "): " + jsonDataString.substring(0, Math.min(jsonDataString.length(), 300)) + "...");
+            messageClientToWear.sendMessage(nodeId, PATH_MAP_DATA_BATCH_TO_WEAR, jsonDataString.getBytes())
+                    .addOnSuccessListener(result -> Log.i(TAG, "Service: Map data batch sent to Wear successfully."))
+                    .addOnFailureListener(e -> Log.e(TAG, "Service: Failed to send map data batch to Wear.", e));
+
+        } catch (JSONException e) {
+            Log.e(TAG, "Service: Error creating JSON for Wear data.", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Service: Unexpected error preparing data for Wear.", e);
+        }
+    }
+
+    private void sendLocationToWearInternal(Location location, String nodeId) {
+        if (nodeId == null) {
+            Log.w(TAG, "Service: Cannot send location to Wear, node ID is null. Attempting to find node if not already trying.");
+            if (this.wearNodeId == null) findWearableNode();
+            return;
+        }
+        if (messageClientToWear == null) {
+            Log.e(TAG, "Service: messageClientToWear is null, cannot send location to Wear.");
+            return;
+        }
+        if (location == null) {
+            Log.w(TAG, "Service: Location to send is null.");
+            return;
+        }
+
+        JSONObject locationJson = new JSONObject();
+        try {
+            locationJson.put("lat", location.getLatitude());
+            locationJson.put("lon", location.getLongitude());
+            if (location.hasBearing()) {
+                locationJson.put("bearing", location.getBearing());
+            }
+            if (location.hasAccuracy()) {
+                locationJson.put("accuracy", location.getAccuracy());
+            }
+            byte[] locationDataBytes = locationJson.toString().getBytes();
+            messageClientToWear.sendMessage(nodeId, PATH_PHONE_LOCATION_UPDATE_TO_WEAR, locationDataBytes)
+                    .addOnSuccessListener(result -> Log.d(TAG, "Service: Location update sent to Wear: " + locationJson.toString()))
+                    .addOnFailureListener(e -> Log.w(TAG, "Service: Failed to send location update to Wear.", e));
+        } catch (JSONException e) {
+            Log.e(TAG, "Service: Error creating JSON for location update.", e);
+        }
+    }
+
+    private void createLocationRequest() {
+        locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, LOCATION_UPDATE_INTERVAL_MS)
+                .setMinUpdateIntervalMillis(FASTEST_LOCATION_UPDATE_INTERVAL_MS)
+                .build();
+    }
+
+    private void createLocationCallback() {
+        locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(@NonNull LocationResult locationResult) {
+                super.onLocationResult(locationResult);
+                Location lastLocation = locationResult.getLastLocation();
+                if (lastLocation != null) {
+                    Log.d(TAG, "Service: New phone location received: " + lastLocation.getLatitude() + ", " + lastLocation.getLongitude());
+                    if (wearNodeId != null) {
+                        sendLocationToWearInternal(lastLocation, wearNodeId);
+                    } else {
+                        Log.w(TAG, "Service: New phone location received, but no Wear node to send to. Attempting to find node.");
+                        findWearableNode();
+                    }
+                }
+            }
+        };
+    }
+
+    private void startInternalLocationUpdates() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.e(TAG, "Service: Location permission not granted. Cannot start phone location updates.");
+            return;
+        }
+        if (fusedLocationClient != null && locationRequest != null && locationCallback != null) {
+            try {
+                fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+                Log.i(TAG, "Service: Requested internal phone location updates.");
+            } catch (SecurityException e) {
+                Log.e(TAG, "Service: SecurityException while requesting phone location updates.", e);
+            }
+        } else {
+            Log.e(TAG, "Service: FusedLocationClient, LocationRequest, or LocationCallback not initialized for phone location. Cannot start updates.");
+        }
+    }
+
+    private void stopInternalLocationUpdates() {
+        if (fusedLocationClient != null && locationCallback != null) {
+            fusedLocationClient.removeLocationUpdates(locationCallback);
+            Log.i(TAG, "Service: Stopped internal phone location updates.");
+        }
+    }
 
     @Override
     public void onDestroy() {
         Log.d(TAG, "MeshReceiverService onDestroy");
+        stopInternalLocationUpdates();
+        stopPeriodicNodeLocationUpdate();
         try {
             unregisterReceiver(meshtasticPacketReceiver);
         } catch (IllegalArgumentException e) {
@@ -682,6 +1094,10 @@ public class MeshReceiverService extends Service {
         unbindFromGeeksvilleMeshService();
         stopPeriodicDBHashUpdate();
         cancelDataRequestTimeout();
+
+        if (messageClientToWear != null) {
+            messageClientToWear.removeListener(this);
+        }
 
         if (mapDataDbHelper != null) {
             mapDataDbHelper.close();

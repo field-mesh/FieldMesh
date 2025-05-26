@@ -13,11 +13,125 @@
         android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.0" />
+        android:keepScreenOn="true"/>
 
+    <Button
+        android:id="@+id/buttonMoveLeft"
+        android:layout_width="40dp"
+        android:layout_height="75dp"
+        android:text=">"
+        app:layout_constraintCircle="@id/mapView"
+        app:layout_constraintCircleRadius="85dp"
+        app:layout_constraintCircleAngle="270"
+        android:rotation="180"
+        android:background="@android:color/transparent"/>
 
+    <Button
+        android:id="@+id/buttonMoveLeftTop"
+        android:layout_width="40dp"
+        android:layout_height="75dp"
+        android:text=">"
+        app:layout_constraintCircle="@id/mapView"
+        app:layout_constraintCircleRadius="85dp"
+        app:layout_constraintCircleAngle="315"
+        android:rotation="225"
+        android:background="@android:color/transparent"/>
+
+    <Button
+        android:id="@+id/buttonMoveTop"
+        android:layout_width="40dp"
+        android:layout_height="75dp"
+        android:text=">"
+        app:layout_constraintCircle="@id/mapView"
+        app:layout_constraintCircleRadius="85dp"
+        app:layout_constraintCircleAngle="0"
+        android:rotation="-90"
+        android:background="@android:color/transparent"/>
+
+    <Button
+        android:id="@+id/buttonMoveRightTop"
+        android:layout_width="40dp"
+        android:layout_height="75dp"
+        android:text=">"
+        app:layout_constraintCircle="@id/mapView"
+        app:layout_constraintCircleRadius="85dp"
+        app:layout_constraintCircleAngle="45"
+        android:rotation="-45"
+        android:background="@android:color/transparent"/>
+
+    <Button
+        android:id="@+id/buttonMoveRight"
+        android:layout_width="40dp"
+        android:layout_height="75dp"
+        android:text=">"
+        app:layout_constraintCircle="@id/mapView"
+        app:layout_constraintCircleRadius="85dp"
+        app:layout_constraintCircleAngle="90"
+        android:rotation="0"
+        android:background="@android:color/transparent"/>
+
+    <Button
+        android:id="@+id/buttonMoveRightBottom"
+        android:layout_width="40dp"
+        android:layout_height="75dp"
+        android:text=">"
+        app:layout_constraintCircle="@id/mapView"
+        app:layout_constraintCircleRadius="85dp"
+        app:layout_constraintCircleAngle="135"
+        android:rotation="45"
+        android:background="@android:color/transparent"/>
+
+    <Button
+        android:id="@+id/buttonMoveBottom"
+        android:layout_width="40dp"
+        android:layout_height="75dp"
+        android:text=">"
+        app:layout_constraintCircle="@id/mapView"
+        app:layout_constraintCircleRadius="85dp"
+        app:layout_constraintCircleAngle="180"
+        android:rotation="90"
+        android:background="@android:color/transparent"/>
+
+    <Button
+        android:id="@+id/buttonMoveLeftBottom"
+        android:layout_width="40dp"
+        android:layout_height="75dp"
+        android:text=">"
+        app:layout_constraintCircle="@id/mapView"
+        app:layout_constraintCircleRadius="85dp"
+        app:layout_constraintCircleAngle="225"
+        android:rotation="135"
+        android:background="@android:color/transparent"/>
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline_v_center"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.5" />
+
+    <Button
+        android:id="@+id/buttonZoomOut"
+        android:layout_width="50dp"
+        android:layout_height="20dp"
+        android:text="-"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/guideline_v_center"
+        android:layout_marginEnd="8dp"
+        android:background="@android:color/transparent"/>
+
+    <Button
+        android:id="@+id/buttonZoomIn"
+        android:layout_width="50dp"
+        android:layout_height="20dp"
+        android:text="+"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/guideline_v_center"
+        android:layout_marginStart="8dp"
+        android:background="@android:color/transparent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
