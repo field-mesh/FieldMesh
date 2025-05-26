@@ -141,7 +141,7 @@ public class MainActivity extends AppCompatActivity implements MessageClient.OnM
 
             updateTileSource();
 
-            mapView.getController().setZoom(3.0);
+            mapView.getController().setZoom(15.0);
             mapView.getController().setCenter(new GeoPoint(0.0, 0.0));
             Log.i(TAG, "onCreate: Map controller initially set.");
 
