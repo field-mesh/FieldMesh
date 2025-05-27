@@ -1,9 +1,9 @@
-# MeshTactic
-<img src="doc/meshtactic.png" alt="Meshtactic" width="200px"/>
+# FieldMesh
+<img src="doc/fieldmesh.png" alt="FieldMesh" width="200px"/>
 
 **Your Off-Grid Geo Awareness Tool, Powered by Meshtastic.**
 
-MeshTactic is an application designed to enhance situational awareness and team coordination in environments where conventional communication infrastructure is unavailable or unreliable. By leveraging the power of Meshtastic devices, MeshTactic provides a robust platform for off-grid mapping, location tracking, and messaging.
+FieldMesh is an application designed to enhance situational awareness and team coordination in environments where conventional communication infrastructure is unavailable or unreliable. By leveraging the power of Meshtastic devices, FieldMesh provides a robust platform for off-grid mapping, location tracking, and messaging.
 
 It's an ideal companion for outdoor enthusiasts, airsoft players, search and rescue teams, and anyone needing reliable communication and shared awareness in disconnected scenarios.
 
@@ -24,11 +24,11 @@ It's an ideal companion for outdoor enthusiasts, airsoft players, search and res
 * **Android Wear Support:** from old to new devices you can have the map data displayed on your watch.
 
 ## Screenshots
-![Meshtactic Screenshot](doc/screenshot.png)
-![Meshtactic Screenshot](doc/wearscreenshot.png)
+![FieldMesh Screenshot](doc/screenshot.png)
+![FieldMesh Screenshot](doc/wearscreenshot.png)
 
 
-## Why MeshTactic?
+## Why FieldMesh?
 
 Meshtastic has a low bandwidth limitation and a Peer to Peer nature this app is designed to work under those constraints. 
 
@@ -48,7 +48,7 @@ Meshtastic has a low bandwidth limitation and a Peer to Peer nature this app is 
 
 If you like what  I am doing become a member:
 
-[![Patreon](https://c5.patreon.com/external/logo/become_a_patron_button.png)](patreon.com/Meshtactic)
+[![Patreon](https://c5.patreon.com/external/logo/become_a_patron_button.png)](patreon.com/FieldMesh)
 
 ## Getting Started
 
@@ -62,7 +62,7 @@ If you like what  I am doing become a member:
 
    * Just Install and use!
 
-   * Form Mbtiles just add them to \Android\data\io.github.meshtactic\files\offline_maps
+   * Form Mbtiles just add them to \Android\data\io.github.field-mesh\files\offline_maps
 
 3. **Usage:**
 
