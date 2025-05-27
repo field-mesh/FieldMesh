@@ -19,6 +19,8 @@ It's an ideal companion for outdoor enthusiasts, airsoft players, search and res
 
 * **Intuitive Mapping Interface:** User-friendly map display for clear visualization of your surroundings and team positions.
 
+* **Offline Map Support:** Auto cache maps by panning around the map or use your own Mbtile files.
+
 * **Android Wear Support:** from old to new devices you can have the map data displayed on your watch.
 
 ## Screenshots
@@ -59,6 +61,8 @@ If you like what  I am doing become a member:
 2. **Setup:**
 
    * Just Install and use!
+
+   * Form Mbtiles just add them to \Android\data\io.github.meshtactic\files\offline_maps
 
 3. **Usage:**
 

@@ -79,8 +79,6 @@
             android:textColor="@android:color/white" />
 
 
-
-
     </LinearLayout>
 
     <LinearLayout
@@ -285,8 +283,6 @@
         android:visibility="visible"
         android:orientation="vertical">
 
-
-
         <ImageButton
             android:id="@+id/infoButton"
             android:layout_width="48dp"
@@ -296,7 +292,7 @@
             android:focusable="true"
             android:scaleType="fitCenter"
             android:src="@drawable/info"
-            android:padding="10dp"/>
+            android:padding="16dp"/>
     </LinearLayout>
 
 

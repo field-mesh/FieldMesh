@@ -47,6 +47,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -57,21 +58,36 @@ import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.io.File;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
+import org.osmdroid.api.IMapController;
 import org.osmdroid.config.Configuration;
 import org.osmdroid.events.MapEventsReceiver;
 import org.osmdroid.events.MapListener;
 import org.osmdroid.events.ScrollEvent;
 import org.osmdroid.events.ZoomEvent;
+import org.osmdroid.tileprovider.IRegisterReceiver;
+import org.osmdroid.tileprovider.MapTileProviderArray;
+import org.osmdroid.tileprovider.MapTileProviderBasic;
+import org.osmdroid.tileprovider.modules.IArchiveFile;
+import org.osmdroid.tileprovider.modules.MBTilesFileArchive;
+import org.osmdroid.tileprovider.modules.ArchiveFileFactory;
+import org.osmdroid.tileprovider.modules.MapTileApproximater;
+import org.osmdroid.tileprovider.modules.MapTileFileArchiveProvider;
+import org.osmdroid.tileprovider.modules.MapTileModuleProviderBase;
+import org.osmdroid.tileprovider.tilesource.ITileSource;
 import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.tileprovider.tilesource.XYTileSource;
+import org.osmdroid.tileprovider.util.SimpleRegisterReceiver;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.util.MapTileIndex;
 import org.osmdroid.views.CustomZoomButtonsController;
@@ -80,7 +96,6 @@ import org.osmdroid.views.overlay.MapEventsOverlay;
 import org.osmdroid.views.overlay.Marker;
 import org.osmdroid.views.overlay.Overlay;
 import android.view.KeyEvent;
-import org.osmdroid.api.IMapController;
 import org.osmdroid.views.overlay.Polygon;
 import org.osmdroid.views.overlay.Polyline;
 
@@ -148,6 +163,12 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private Runnable mServiceStartRunnable;
     private BroadcastReceiver mapDataRefreshReceiver;
     private BroadcastReceiver syncStatusUpdateReceiver;
+
+    private static final String TILE_SOURCE_OSM = "OpenStreetMap (Online)";
+    private static final String TILE_SOURCE_ESRI = "ESRI Satellite (Online)";
+    private static final String MBTILES_SUBDIRECTORY = "offline_maps";
+    private String currentTileSourceName = TILE_SOURCE_OSM;
+    private File currentMbtilesFile = null;
 
 
     private class AttributionOverlay extends Overlay {
@@ -283,8 +304,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         mapDataDbHelper = new MapDataDatabaseHelper(this);
 
         Configuration.getInstance().load(getApplicationContext(), getPreferences(MODE_PRIVATE));
-        setContentView(R.layout.activity_main);
-
         mapView = findViewById(R.id.mapview);
         addPinButton = findViewById(R.id.btn_pin_add);
         addCircleButton = findViewById(R.id.btn_circle_add);
@@ -328,7 +347,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
             builder.setTitle("About & Support");
             builder.setIcon(R.drawable.meshtacticlogo);
-            String authorName = "Your Name / Alias";
             String githubLink = "https://github.com/meshtactic/Meshtactic/";
             String patreonLink = "https://patreon.com/Meshtactic";
 
@@ -349,9 +367,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             messageView.setPadding(50, 30, 50, 30);
 
             builder.setView(messageView);
-
             builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
-
             AlertDialog dialog = builder.create();
             dialog.show();
         });
@@ -491,7 +507,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         });
 
 
-        mapView.setTileSource(TileSourceFactory.MAPNIK);
+        setTileSourceInternal(TILE_SOURCE_OSM, null);
         mapView.setMultiTouchControls(true);
         mapView.getController().setZoom(15.0);
         mapView.getZoomController().setVisibility(CustomZoomButtonsController.Visibility.NEVER);
@@ -524,12 +540,14 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         attributionOverlay = new AttributionOverlay(this);
         mapView.getOverlays().add(attributionOverlay);
 
+
         MapEventsOverlay mapEventsOverlay = new MapEventsOverlay(this);
         mapView.getOverlays().add(0, mapEventsOverlay);
         mapView.addMapListener(this);
 
         updateTileToggleButton();
-        btnTileToggle.setOnClickListener(v -> { isSatellite = !isSatellite; updateTileSource(); updateTileToggleButton(); });
+        btnTileToggle.setOnClickListener(v -> showTileSourceSelectionDialog());
+
         updateFollowToggleButton();
         btnFollowToggle.setOnClickListener(v -> {
             isFollowing = !isFollowing; updateFollowToggleButton();
@@ -657,7 +675,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
                 Marker existingMarker = findMarkerById(mapView, nodeId);
                 if (existingMarker != null) {
-
                     existingMarker.setPosition(nodePosition);
                 }
                 addCustomPin(nodePosition, R.drawable.radio, targetColorResId, node.getUser().getShortName(), nodeId);
@@ -665,8 +682,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
             List<Marker> pinsToRemove = new ArrayList<>();
             for(Marker pin : customPins){
-                if(pin.getId() != null && pin.getIcon().getConstantState().equals(ResourcesCompat.getDrawable(getResources(), R.drawable.radio, getTheme()).getConstantState())){
-                    if(!currentDisplayedNodeIds.contains(pin.getId())){
+                if(pin.getId() != null) {
+                    Drawable icon = pin.getIcon();
+                    Drawable radioIcon = ResourcesCompat.getDrawable(getResources(), R.drawable.radio, getTheme());
+                    if (pin.getId().startsWith("!") && !currentDisplayedNodeIds.contains(pin.getId())) {
                         pinsToRemove.add(pin);
                     }
                 }
@@ -774,7 +793,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                                 mapView.getOverlays().remove(temporaryCircleCenterMarker);
                                 temporaryCircleCenterMarker = null;
                             }
-
                             showShapeColorSelectionDialog();
                         } else {
                             Toast.makeText(this, "Radius too small. Tap further from center.", Toast.LENGTH_SHORT).show();
@@ -795,7 +813,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (mapController == null) return super.onKeyDown(keyCode, event);
         switch (keyCode) {
-            case KeyEvent.KEYCODE_VOLUME_UP:   mapController.zoomIn(); return true;
+            case KeyEvent.KEYCODE_VOLUME_UP:  mapController.zoomIn(); return true;
             case KeyEvent.KEYCODE_VOLUME_DOWN: mapController.zoomOut(); return true;
         }
         return super.onKeyDown(keyCode, event);
@@ -1244,8 +1262,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 toggleToolsBtn.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this,R.color.red)));
             }
         }
-
-
         clearAllTemporaryDrawingStates();
         Log.d(TAG, "Editing mode reset.");
     }
@@ -1304,7 +1320,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             int labelBgHeight = textHeight + textPadding * 2;
 
             int finalWidth = Math.max(baseIconSize + outlineOffset * 2, labelBgWidth);
-
             int finalHeight = (baseIconSize + outlineOffset * 2) + (int)(1 * density) + labelBgHeight;
 
             Bitmap finalBitmap = Bitmap.createBitmap(finalWidth, finalHeight, Bitmap.Config.ARGB_8888);
@@ -1334,7 +1349,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             );
             coloredDrawable.draw(canvas);
 
-
             Paint labelBgPaint = new Paint();
             labelBgPaint.setColor(Color.argb(180, 0, 0, 0));
             labelBgPaint.setAntiAlias(true);
@@ -1345,19 +1359,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             RectF labelBgRect = new RectF(labelBgLeft, labelBgTop, labelBgLeft + labelBgWidth, labelBgTop + labelBgHeight);
             canvas.drawRoundRect(labelBgRect, 6 * density, 6 * density, labelBgPaint);
 
-
             float textX = finalWidth / 2f;
-
             float textY = labelBgTop + (labelBgHeight / 2f) - (textPaint.descent() + textPaint.ascent()) / 2f;
             canvas.drawText(labelText, textX, textY, textPaint);
 
             customMarker.setIcon(new BitmapDrawable(getResources(), finalBitmap));
         } else {
             Log.w(TAG, "Icon drawable was null for resource ID: " + iconResourceId + ". Using default.");
-
             customMarker.setIcon(ResourcesCompat.getDrawable(getResources(), org.osmdroid.library.R.drawable.marker_default, getTheme()));
         }
-
 
         if (iconResourceId != R.drawable.radio) {
             customMarker.setOnMarkerClickListener((marker, mv) -> {
@@ -1560,30 +1570,184 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         return nodeId.length() > 8 ? "!" + nodeId.substring(nodeId.length() - 8) : "!" + nodeId;
     }
 
+    private List<File> getMbtilesFiles() {
+        List<File> mbtilesFilesList = new ArrayList<>();
+        File mbtilesDir = new File(getExternalFilesDir(null), MBTILES_SUBDIRECTORY);
 
-    private void updateTileSource() {
-        if (mapView == null) return;
-        if (isSatellite) {
-            OnlineTileSourceBase esriTileSource = new OnlineTileSourceBase(
-                    "ESRI WorldImagery", 0, 19, 256, ".jpeg",
-                    new String[]{"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"},
-                    "Esri, Maxar, Earthstar Geographics, and the GIS User Community") {
-                @Override
-                public String getTileURLString(long pMapTileIndex) {
-                    return getBaseUrl() + MapTileIndex.getZoom(pMapTileIndex) + "/" + MapTileIndex.getY(pMapTileIndex) + "/" + MapTileIndex.getX(pMapTileIndex) + mImageFilenameEnding;
-                }
-            };
-            mapView.setTileSource(esriTileSource);
-            mapView.setTilesScaledToDpi(true);
-            if(attributionOverlay != null) attributionOverlay.setAttribution(esriTileSource.getCopyrightNotice());
-            if (mapController != null && mapView.getZoomLevelDouble() > 19) mapController.setZoom(19.0);
-        } else {
-            mapView.setTileSource(TileSourceFactory.MAPNIK);
-            mapView.setTilesScaledToDpi(false);
-            if(attributionOverlay != null) attributionOverlay.setAttribution(TileSourceFactory.MAPNIK.getCopyrightNotice());
+        if (!mbtilesDir.exists()) {
+            if (!mbtilesDir.mkdirs()) {
+                Log.e(TAG, "Failed to create mbtiles directory: " + mbtilesDir.getAbsolutePath());
+                Toast.makeText(this, "Could not create mbtiles directory. Please create it manually: " + mbtilesDir.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                return mbtilesFilesList;
+            }
         }
-        mapView.invalidate();
+
+        if (mbtilesDir.exists() && mbtilesDir.isDirectory()) {
+            File[] files = mbtilesDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".mbtiles"));
+            if (files != null) {
+                Collections.addAll(mbtilesFilesList, files);
+                Collections.sort(mbtilesFilesList, (f1, f2) -> f1.getName().compareToIgnoreCase(f2.getName()));
+            }
+        } else {
+            Log.e(TAG, "MBTiles directory is not a directory or does not exist: " + mbtilesDir.getAbsolutePath());
+        }
+        return mbtilesFilesList;
     }
+
+
+    private void showTileSourceSelectionDialog() {
+        List<String> dialogDisplayItems = new ArrayList<>();
+        List<Object> sourceDataObject = new ArrayList<>();
+
+        dialogDisplayItems.add("--- Online Sources ---");
+        sourceDataObject.add("HEADER_ONLINE");
+
+        dialogDisplayItems.add(TILE_SOURCE_OSM);
+        sourceDataObject.add(TILE_SOURCE_OSM);
+
+        dialogDisplayItems.add(TILE_SOURCE_ESRI);
+        sourceDataObject.add(TILE_SOURCE_ESRI);
+
+        List<File> mbtilesDiskFiles = getMbtilesFiles();
+        if (!mbtilesDiskFiles.isEmpty()) {
+            dialogDisplayItems.add("--- Offline Sources ---");
+            sourceDataObject.add("HEADER_OFFLINE");
+
+            for (File file : mbtilesDiskFiles) {
+                dialogDisplayItems.add(file.getName());
+                sourceDataObject.add(file);
+            }
+        } else {
+            dialogDisplayItems.add("(No offline .mbtiles files found in /" + MBTILES_SUBDIRECTORY + " folder)");
+            sourceDataObject.add(null);
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Tile Source");
+
+        builder.setItems(dialogDisplayItems.toArray(new String[0]), (dialog, which) -> {
+            Object selectedItemData = sourceDataObject.get(which);
+
+            if (selectedItemData instanceof String) {
+                String selectedName = (String) selectedItemData;
+                if (TILE_SOURCE_OSM.equals(selectedName)) {
+                    setTileSourceInternal(TILE_SOURCE_OSM, null);
+                } else if (TILE_SOURCE_ESRI.equals(selectedName)) {
+                    setTileSourceInternal(TILE_SOURCE_ESRI, null);
+                } else if (selectedName.startsWith("HEADER")) {
+                    return;
+                }
+            } else if (selectedItemData instanceof File) {
+                setTileSourceInternal(null, (File) selectedItemData);
+            }
+
+            dialog.dismiss();
+        });
+
+        builder.create().show();
+    }
+
+
+
+    private void setTileSourceInternal(@Nullable String onlineSourceName, @Nullable File mbtilesFile) {
+        if (mapView == null) return;
+
+        try {
+            if (mbtilesFile != null) {
+                this.currentTileSourceName = mbtilesFile.getName();
+                this.currentMbtilesFile = mbtilesFile;
+                this.isSatellite = false;
+
+                String mbtilesName = mbtilesFile.getName().replace(".mbtiles", "");
+
+                int minZoom = 0;
+                int maxZoom = 25;
+                String tileExtension = ".png";
+
+                ITileSource mbTileSource = new XYTileSource(
+                        mbtilesName,
+                        minZoom,
+                        maxZoom,
+                        256,
+                        tileExtension,
+                        new String[]{},
+                        "Offline Map: " + mbtilesName
+                );
+                IArchiveFile mbArchive = MBTilesFileArchive.getDatabaseFileArchive(mbtilesFile);
+                IRegisterReceiver registerReceiver = new SimpleRegisterReceiver(this);
+                MapTileFileArchiveProvider archiveProvider = new MapTileFileArchiveProvider(
+                        registerReceiver,
+                        mbTileSource,
+                        new IArchiveFile[]{mbArchive}
+                );
+                MapTileApproximater approximater = new MapTileApproximater();
+                approximater.addProvider(archiveProvider);
+                MapTileModuleProviderBase[] modules = new MapTileModuleProviderBase[]{
+                        archiveProvider,
+                        approximater
+                };
+
+                MapTileProviderArray tileProviderArray = new MapTileProviderArray(
+                        mbTileSource,
+                        registerReceiver,
+                        modules
+                );
+
+                mapView.setTileProvider(tileProviderArray);
+                mapView.setTileSource(mbTileSource);
+                mapView.setTilesScaledToDpi(false);
+                mapView.setMinZoomLevel((double) minZoom);
+                mapView.setMaxZoomLevel((double) maxZoom);
+
+                if (attributionOverlay != null) {
+                    attributionOverlay.setAttribution("Offline Map: " + mbtilesName);
+                }
+
+            } else if (TILE_SOURCE_ESRI.equals(onlineSourceName)) {
+                this.currentTileSourceName = TILE_SOURCE_ESRI;
+                this.currentMbtilesFile = null;
+                this.isSatellite = true;
+
+                OnlineTileSourceBase esriTileSource = new OnlineTileSourceBase(
+                        "ESRI WorldImagery", 0, 19, 256, ".jpeg",
+                        new String[]{"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"},
+                        "Esri, Maxar, Earthstar Geographics, and the GIS User Community") {
+                    @Override
+                    public String getTileURLString(long pMapTileIndex) {
+                        return getBaseUrl() + MapTileIndex.getZoom(pMapTileIndex) + "/" + MapTileIndex.getY(pMapTileIndex) + "/" + MapTileIndex.getX(pMapTileIndex) + mImageFilenameEnding;
+                    }
+                };
+                mapView.setTileProvider(new MapTileProviderBasic(getApplicationContext()));
+                mapView.setTileSource(esriTileSource);
+                mapView.setTilesScaledToDpi(true);
+                if (attributionOverlay != null) attributionOverlay.setAttribution(esriTileSource.getCopyrightNotice());
+                mapView.setMinZoomLevel(0.0);
+                mapView.setMaxZoomLevel(19.0);
+                if (mapController != null && mapView.getZoomLevelDouble() > 19) mapController.setZoom(19.0);
+
+            } else {
+                this.currentTileSourceName = TILE_SOURCE_OSM;
+                this.currentMbtilesFile = null;
+                this.isSatellite = false;
+
+                mapView.setTileProvider(new MapTileProviderBasic(getApplicationContext()));
+                mapView.setTileSource(TileSourceFactory.MAPNIK);
+                mapView.setTilesScaledToDpi(false);
+                if (attributionOverlay != null) attributionOverlay.setAttribution(TileSourceFactory.MAPNIK.getCopyrightNotice());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setTileSourceInternal: ", e);
+            Toast.makeText(this, "Failed to set tile source. Defaulting to OSM.", Toast.LENGTH_LONG).show();
+            if (!TILE_SOURCE_OSM.equals(this.currentTileSourceName) || this.currentMbtilesFile != null) {
+                setTileSourceInternal(TILE_SOURCE_OSM, null);
+            }
+        }
+
+        mapView.invalidate();
+        updateTileToggleButton();
+    }
+
+
 
     private void updateTileToggleButton() { btnTileToggle.setImageResource(isSatellite ? R.drawable.layers_icon : R.drawable.layers_icon); }
     private void updateFollowToggleButton() { btnFollowToggle.setImageResource(isFollowing ? R.drawable.current_location_icon : R.drawable.free_location_icon); }
@@ -1621,15 +1785,36 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE) {
             boolean allGranted = true;
-            for (int grantResult : grantResults) {
-                if (grantResult != PackageManager.PERMISSION_GRANTED) {
-                    allGranted = false; break;
+            List<String> deniedPermissions = new ArrayList<>();
+
+            for (int i = 0; i < grantResults.length; i++) {
+                if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    deniedPermissions.add(permissions[i]);
+                    Log.w(TAG, "Permission denied: " + permissions[i]);
                 }
             }
-            if (allGranted) enableLocationUpdates();
-            else Toast.makeText(this, "Permissions not granted. Some features may not work.", Toast.LENGTH_LONG).show();
-        }
 
+            if (allGranted) {
+                enableLocationUpdates();
+            } else {
+
+                StringBuilder deniedPermissionsMessage = new StringBuilder("The following permissions are required for full functionality but were denied: ");
+                for (int i = 0; i < deniedPermissions.size(); i++) {
+                    String permissionName = deniedPermissions.get(i);
+                    if (permissionName.contains(".")) {
+                        permissionName = permissionName.substring(permissionName.lastIndexOf(".") + 1);
+                    }
+                    deniedPermissionsMessage.append(permissionName);
+                    if (i < deniedPermissions.size() - 1) {
+                        deniedPermissionsMessage.append(", ");
+                    }
+                }
+                deniedPermissionsMessage.append(". Some features may not work as expected.");
+                Toast.makeText(this, deniedPermissionsMessage.toString(), Toast.LENGTH_LONG).show();
+                Log.w(TAG, "Not all permissions granted. Denied: " + deniedPermissions.toString());
+            }
+        }
     }
 
 
@@ -1659,6 +1844,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
         clearAndReloadMapData();
         startUpdatingNodeLocationsOnMap();
+        if (currentMbtilesFile != null) {
+            setTileSourceInternal(null, currentMbtilesFile);
+        } else {
+            setTileSourceInternal(currentTileSourceName, null);
+        }
         Log.d(TAG, "onResume: Activity resumed.");
     }
 
@@ -1671,7 +1861,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         if (locationManager != null) {
             locationManager.removeUpdates(this);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && gnssStatusCallback != null) {
-                locationManager.unregisterGnssStatusCallback(gnssStatusCallback);
+                try {
+                    locationManager.unregisterGnssStatusCallback(gnssStatusCallback);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error unregistering GNSS callback", e);
+                }
             }
         }
         unregisterOrientationSensor();
@@ -1768,8 +1962,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             if (getWindowManager() == null || getWindowManager().getDefaultDisplay() == null) return kalmanAngle;
             int screenRotation = getWindowManager().getDefaultDisplay().getRotation();
             switch (screenRotation) {
-                case Surface.ROTATION_0:   worldAxisX = SensorManager.AXIS_X; worldAxisY = SensorManager.AXIS_Y; break;
-                case Surface.ROTATION_90:  worldAxisX = SensorManager.AXIS_Y; worldAxisY = SensorManager.AXIS_MINUS_X; break;
+                case Surface.ROTATION_0:  worldAxisX = SensorManager.AXIS_X; worldAxisY = SensorManager.AXIS_Y; break;
+                case Surface.ROTATION_90: worldAxisX = SensorManager.AXIS_Y; worldAxisY = SensorManager.AXIS_MINUS_X; break;
                 case Surface.ROTATION_180: worldAxisX = SensorManager.AXIS_MINUS_X; worldAxisY = SensorManager.AXIS_MINUS_Y; break;
                 case Surface.ROTATION_270: worldAxisX = SensorManager.AXIS_MINUS_Y; worldAxisY = SensorManager.AXIS_X; break;
             }
@@ -1835,4 +2029,22 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     @Override public boolean onScroll(ScrollEvent event) { return false; }
     @Override public boolean onZoom(ZoomEvent event) { return false; }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "onDestroy: Activity destroying...");
+        unbindFromGeeksvilleMeshServiceForActivity();
+        if (mapView != null) {
+            mapView.onDetach();
+        }
+        mapView = null;
+        if (periodicNodeUpdateHandler != null && nodeUpdateRunnable != null) {
+            periodicNodeUpdateHandler.removeCallbacks(nodeUpdateRunnable);
+        }
+        if (mServiceStartHandler != null && mServiceStartRunnable != null) {
+            mServiceStartHandler.removeCallbacks(mServiceStartRunnable);
+        }
+        Log.d(TAG, "onDestroy: Activity destroyed.");
+    }
 }
