@@ -17,7 +17,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace 'io.github.meshtactic'
+    namespace 'io.github.fieldmesh'
 
     signingConfigs {
         release {
@@ -29,7 +29,7 @@ android {
     }
     compileSdk 35
     defaultConfig {
-        applicationId "io.github.meshtactic"
+        applicationId "io.github.fieldmesh"
         minSdkVersion 23 // The oldest emulator image I have tried is 22 (though 21 probably works)
         targetSdk 34
         versionCode 30524 // format is Mmmss (where M is 1+the numeric major number
@@ -145,7 +145,7 @@ androidComponents {
 dependencies {
 
     implementation(fileTree(dir: 'libs', include: ['*.jar']))
-
+    implementation(libs.kotlin.reflect)
     // Bundles
     implementation(libs.bundles.androidx)
     implementation(libs.bundles.ui)

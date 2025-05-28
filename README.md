@@ -48,7 +48,7 @@ Meshtastic has a low bandwidth limitation and a Peer to Peer nature this app is 
 
 If you like what  I am doing become a member:
 
-[![Patreon](https://c5.patreon.com/external/logo/become_a_patron_button.png)](patreon.com/FieldMesh)
+[![Patreon](https://c5.patreon.com/external/logo/become_a_patron_button.png)](https://patreon.com/FieldMesh)
 
 ## Getting Started
 

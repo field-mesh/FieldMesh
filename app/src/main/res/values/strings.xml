@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">MeshTactic</string>
+    <string name="app_name">FieldMesh</string>
     <string name="osm_attribution">&amp;copy; OpenStreetMap contributors</string>
     <string name="title_activity_pin_icon_selection">PinIconSelectionActivity</string>
     <string name="rNameCircle">CIRCLE</string>
@@ -48,6 +48,6 @@
     <string name="rBiohazard">BIOHAZARD</string>"
     <string name="rExclamation">WARNING</string>
     <string name="rRadioactive">NUCLEAR</string>
-    <string name="mesh_service_channel_name">Meshtactic Service</string>
-    <string name="mesh_service_channel_description">Handles background Meshtastic data.</string>
+    <string name="mesh_service_channel_name">FieldMesh Service</string>
+    <string name="mesh_service_channel_description">Handles background FieldMesh data.</string>
 </resources>

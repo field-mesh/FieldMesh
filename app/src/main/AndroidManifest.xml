@@ -22,20 +22,20 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Meshtactic"
+        android:theme="@style/Theme.AppCompat.NoActionBar"
         tools:replace="android:allowBackup"
         android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
         <activity
-            android:name=".InfoActivity"
+            android:name="io.github.fieldmesh.InfoActivity"
             android:exported="false" />
         <activity
             android:name=".PinIconSelectionActivity"
             android:exported="false"
             android:label="@string/title_activity_pin_icon_selection"
-            android:theme="@style/Theme.Meshtactic" />
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
         <activity
-            android:name=".MainActivity"
+            android:name="io.github.fieldmesh.MainActivity"
             android:configChanges="orientation|screenSize"
             android:exported="true">
             <intent-filter>
