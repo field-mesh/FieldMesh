@@ -11,7 +11,6 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat;
-import io.github.fieldmesh.ColorIndex;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -43,7 +42,7 @@ public class PinIconSelectionActivity extends AppCompatActivity {
         icons.put("People", peopleIcons);
 
         List<Integer> vehicleIcons = Arrays.asList(
-                R.drawable.bycicle,
+                R.drawable.bicicle,
                 R.drawable.motorcycle,
                 R.drawable.car,
                 R.drawable.truck,
