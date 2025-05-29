@@ -27,6 +27,7 @@ import android.location.GnssStatus;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -967,7 +968,30 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     }
 
     @Override
-    public boolean longPressHelper(GeoPoint p) { return false; }
+    public boolean longPressHelper(GeoPoint p) {
+        generateAndShareLoc(p);
+        return false;
+    }
+
+    private void generateAndShareLoc(GeoPoint geoPoint) {
+        if (geoPoint != null) {
+            String latitude = String.valueOf(geoPoint.getLatitude());
+            String longitude = String.valueOf(geoPoint.getLongitude());
+            MGRS mgrsObject = MGRS.from(geoPoint.getLongitude(), geoPoint.getLatitude());
+            String mgrsCoordinateString = mgrsObject.coordinate();
+            String shareText = "Location Information:\n" +
+                    "Latitude: " + latitude + "\n" +
+                    "Longitude: " + longitude + "\n" +
+                    "MGRS: " + mgrsCoordinateString;
+
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("text/plain");
+            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Location from fieldmesh");
+            shareIntent.putExtra(Intent.EXTRA_TEXT, "Check out this location: " +  shareText);
+            startActivity(Intent.createChooser(shareIntent, "Share Location Via"));
+        }
+    }
+
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
