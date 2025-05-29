@@ -21,7 +21,11 @@ It's an ideal companion for outdoor enthusiasts, airsoft players, search and res
 
 * **Offline Map Support:** Auto cache maps by panning around the map or use your own Mbtile files.
 
+* **Search:** Search Lat and Lon.
+
 * **Android Wear Support:** from old to new devices you can have the map data displayed on your watch.
+
+
 
 ## Screenshots
 ![FieldMesh Screenshot](doc/screenshot.png)

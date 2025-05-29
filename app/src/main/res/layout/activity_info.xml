@@ -23,7 +23,7 @@
         android:id="@+id/tv_info"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Welcome to MeshTactic!"
+        android:text="Welcome to FieldMesh!"
         android:textSize="18sp"
         android:textColor="@color/white"
         android:textStyle="bold"

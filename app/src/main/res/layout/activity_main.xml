@@ -67,6 +67,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Satellites: 0"
+            android:visibility="gone"
             android:textSize="12sp"
             android:textColor="@android:color/white" />
 
@@ -79,7 +80,35 @@
             android:textColor="@android:color/white" />
 
 
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="5dp"
+            android:background="#FFFFFF"
+            android:layout_marginBottom="2dp"
+            android:layout_marginTop="2dp"/>
+
+        <TextView
+            android:id="@+id/mgrsText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cursor Pos (MGRS):"
+            android:textSize="12sp"
+            android:visibility="gone"
+            android:textColor="@android:color/white" />
+
+
+        <TextView
+            android:id="@+id/mgrsPos"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:visibility="gone"
+            android:textColor="@android:color/white" />
+
     </LinearLayout>
+
+
 
     <LinearLayout
         android:id="@+id/button_layout"
@@ -284,6 +313,30 @@
         android:orientation="vertical">
 
         <ImageButton
+            android:id="@+id/searchButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/search"
+            android:layout_marginBottom="12dp"
+            android:padding="10dp"/>
+
+        <ImageButton
+            android:id="@+id/toggleGrid"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/grid"
+            android:layout_marginBottom="12dp"
+            android:padding="10dp"/>
+
+        <ImageButton
             android:id="@+id/infoButton"
             android:layout_width="48dp"
             android:layout_height="48dp"
@@ -292,8 +345,26 @@
             android:focusable="true"
             android:scaleType="fitCenter"
             android:src="@drawable/info"
-            android:padding="16dp"/>
+            android:padding="10dp"/>
     </LinearLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context=".MainActivity">
+
+        <ImageView
+            android:id="@+id/cursor"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:src="@drawable/cursor"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 
 </RelativeLayout>
