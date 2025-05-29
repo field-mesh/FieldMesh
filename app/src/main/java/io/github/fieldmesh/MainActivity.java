@@ -385,10 +385,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
             builder.setTitle("Go to Location");
 
-            // Set up the input fields
+
             LinearLayout layout = new LinearLayout(MainActivity.this);
             layout.setOrientation(LinearLayout.VERTICAL);
-            layout.setPadding(50, 20, 50, 20); // Add some padding
+            layout.setPadding(50, 20, 50, 20);
 
             final EditText mgrsInput = new EditText(MainActivity.this);
             mgrsInput.setHint("MGRS Coordinate");
@@ -407,7 +407,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
             builder.setView(layout);
 
-            // Set up the buttons
+
             builder.setPositiveButton("Go", (dialog, which) -> {
                 double latitude;
                 double longitude;
@@ -418,7 +418,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
                     GeoPoint newLocation = new GeoPoint(latitude, longitude);
                     mapView.getController().animateTo(newLocation);
-                    mapView.getController().setZoom(15.0); // You can adjust the zoom level
+                    mapView.getController().setZoom(15.0);
                     } else {
                         MGRS mgrsObject = MGRS.parse(mgrsInput.getText().toString());
                         Point geographicPoint = mgrsObject.toPoint();
@@ -466,10 +466,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             String githubLink = "https://github.com/field-mesh/FieldMesh/";
             String patreonLink = "https://patreon.com/FieldMesh";
 
-            // Add links for the open-source projects
+
             String osmdroidLink = "https://github.com/osmdroid/osmdroid";
-            String mgrsLink = "https://github.com/ngageoint/mgrs-java"; // Updated MGRS link based on current info
-            String meshtasticLink = "https://meshtastic.org/"; // Official Meshtastic website
+            String mgrsLink = "https://github.com/ngageoint/mgrs-java";
+            String meshtasticLink = "https://meshtastic.org/";
 
             String message = "<p><b>For more information access our repository:</b></p>" +
                     "<a href=\"" + githubLink + "\">GitHub Repository</a><br>" +
@@ -477,7 +477,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     "<a href=\"" + patreonLink + "\">Patreon Page</a><br><br>" +
                     "<p><b>Version: 1.0</b></p> <p>(Expect Bugs, if found report on github)</p>" +
                     "<b>Thank you for using FieldMesh!</b>" +
-                    "<br><br>" + // Add some spacing before attributions
+                    "<br><br>" +
                     "<p><b>Attributions:</b></p>" +
                     "<p>This project utilizes the following open-source libraries:</p>" +
                     "<ul>" +
@@ -488,12 +488,12 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
             TextView messageView = new TextView(this);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                messageView.setText(Html.fromHtml(message, Html.FROM_HTML_MODE_COMPACT)); // Use COMPACT for cleaner HTML parsing
+                messageView.setText(Html.fromHtml(message, Html.FROM_HTML_MODE_COMPACT));
             } else {
                 messageView.setText(Html.fromHtml(message));
             }
-            messageView.setMovementMethod(LinkMovementMethod.getInstance()); // Makes links clickable
-            messageView.setPadding(50, 30, 50, 30); // Adjust padding as desired
+            messageView.setMovementMethod(LinkMovementMethod.getInstance());
+            messageView.setPadding(50, 30, 50, 30);
 
             builder.setView(messageView);
             builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
@@ -685,10 +685,41 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             }
         });
         updateRotateToggleButton();
+        updateRotateToggleButton();
         btnRotateToggle.setOnClickListener(v -> {
-            isRotationEnabled = !isRotationEnabled; updateRotateToggleButton();
-            if (isRotationEnabled) registerOrientationSensor();
-            else { unregisterOrientationSensor(); mapView.setMapOrientation(0); btnRotateToggle.setRotation(0); }
+            isRotationEnabled = !isRotationEnabled;
+            updateRotateToggleButton();
+            if (isRotationEnabled) {
+                registerOrientationSensor();
+
+            } else {
+
+                mapView.setMapOrientation(0);
+                btnRotateToggle.setRotation(0);
+
+
+                if (myLocationMarker != null) {
+                    Location lastKnownLocation = null;
+                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                        lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                        if (lastKnownLocation == null) {
+                            lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                        }
+                    }
+
+                    if (lastKnownLocation != null && lastKnownLocation.hasBearing() &&
+                            (System.currentTimeMillis() - lastKnownLocation.getTime() < 5000)) {
+                        myLocationMarker.setRotation(lastKnownLocation.getBearing());
+                    } else {
+
+                        myLocationMarker.setRotation(-kalmanAngle);
+                    }
+                }
+            }
+
+            if (mapView != null) {
+                mapView.invalidate();
+            }
         });
 
         requestPermissionsIfNecessary(new String[]{
@@ -1125,9 +1156,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         circlePolygon.setPoints(circlePoints);
         circlePolygon.setId(uuid);
 
-        // *** Store the original center and radius here as an Object array ***
-        // Object[0] = center GeoPoint
-        // Object[1] = radiusInMeters (Double)
         circlePolygon.setRelatedObject(new Object[]{center, radiusInMeters});
 
 
@@ -1147,7 +1175,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
         circlePolygon.setOnClickListener((polygon, mv, eventPos) -> {
             if (IS_EDIT_MODE == 0) {
-                // *** Retrieve the stored center and radius ***
+
                 GeoPoint actualCenter = null;
                 double actualRadius = 0.0;
 
@@ -1160,7 +1188,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     }
                 }
 
-                // Initialize display variables
+
                 double displayLatitude = 0.0;
                 double displayLongitude = 0.0;
                 String mgrsCoordinateString = "N/A";
@@ -1172,7 +1200,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     displayLatitude = actualCenter.getLatitude();
                     displayLongitude = actualCenter.getLongitude();
 
-                    // Convert center Lat/Long to MGRS
                     try {
                         MGRS mgrsObject = MGRS.from(displayLongitude, displayLatitude);
                         mgrsCoordinateString = mgrsObject.coordinate();
@@ -1181,7 +1208,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                         mgrsCoordinateString = "Error converting MGRS";
                     }
 
-                    // Calculate perimeter (circumference) and area using the actual radius
+
                     double circumference = 2 * Math.PI * actualRadius;
                     formattedPerimeter = formatDistance(circumference);
 
@@ -1189,12 +1216,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     formattedArea = formatArea(area);
 
                 } else {
-                    // Fallback if center data is somehow missing (shouldn't happen with setRelatedObject)
                     formattedPerimeter = "N/A (no center)";
                     formattedArea = "N/A (no center)";
                 }
 
-                // Construct the message string with all the info
                 String message = "Title: " + polygon.getTitle() + "\n" +
                         "ID: " + polygon.getId() + "\n" +
                         "Latitude (Center): " + String.format(Locale.US, "%.6f", displayLatitude) + "\n" +
@@ -1253,10 +1278,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
         line.setOnClickListener((polyline, mv, eventPos) -> {
             if (IS_EDIT_MODE == 0) {
-                // Calculate the length of the polyline
                 double lengthInMeters = calculatePolylineLength(polyline);
 
-                // Format the length for display
                 String formattedLength;
                 if (lengthInMeters < 1000) {
                     formattedLength = String.format("%.2f meters", lengthInMeters);
@@ -1264,14 +1287,13 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     formattedLength = String.format("%.2f km", lengthInMeters / 1000.0);
                 }
 
-                // Construct the message string with the length info
                 String message = "ID: " + polyline.getId() + "\n" +
                         "Length: " + formattedLength + "\n" +
                         "Remove this line?";
 
                 new AlertDialog.Builder(MainActivity.this)
                         .setTitle("Line Options")
-                        .setMessage(message) // Use the constructed message
+                        .setMessage(message)
                         .setPositiveButton("Remove", (d, w) -> {
                             mv.getOverlays().remove(polyline);
                             drawnLines.remove(polyline);
@@ -1305,7 +1327,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             for (int i = 0; i < points.size() - 1; i++) {
                 org.osmdroid.util.GeoPoint p1 = points.get(i);
                 org.osmdroid.util.GeoPoint p2 = points.get(i + 1);
-                totalLength += p1.distanceToAsDouble(p2); // Distance in meters
+                totalLength += p1.distanceToAsDouble(p2);
             }
         }
         return totalLength;
@@ -1336,15 +1358,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
         polygon.setOnClickListener((poly, mv, eventPos) -> {
             if (IS_EDIT_MODE == 0) {
-                // Calculate perimeter
+
                 double perimeterInMeters = calculatePolygonPerimeter(poly);
                 String formattedPerimeter = formatDistance(perimeterInMeters);
 
-                // Calculate area
+
                 double areaInSquareMeters = calculatePolygonArea(poly);
                 String formattedArea = formatArea(areaInSquareMeters);
 
-                // Construct the message string with the area and perimeter info
+
                 String message = "ID: " + poly.getId() + "\n" +
                         "Perimeter: " + formattedPerimeter + "\n" +
                         "Area: " + formattedArea + "\n" +
@@ -1352,7 +1374,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
                 new AlertDialog.Builder(MainActivity.this)
                         .setTitle("Polygon Options")
-                        .setMessage(message) // Use the constructed message
+                        .setMessage(message)
                         .setPositiveButton("Remove", (d, w) -> {
                             mv.getOverlays().remove(poly);
                             drawnPolygons.remove(poly);
@@ -1383,14 +1405,14 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         List<GeoPoint> points = polygon.getPoints();
 
         if (points != null && points.size() > 1) {
-            // Sum distances between consecutive points
+
             for (int i = 0; i < points.size() - 1; i++) {
                 GeoPoint p1 = points.get(i);
                 GeoPoint p2 = points.get(i + 1);
                 perimeter += p1.distanceToAsDouble(p2);
             }
-            // Add distance from last point back to the first point to close the polygon
-            if (points.size() > 2) { // A polygon needs at least 3 points
+
+            if (points.size() > 2) {
                 perimeter += points.get(points.size() - 1).distanceToAsDouble(points.get(0));
             }
         }
@@ -1402,20 +1424,18 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         List<GeoPoint> points = polygon.getPoints();
 
         if (points == null || points.size() < 3) {
-            return 0.0; // A polygon needs at least 3 points
+            return 0.0;
         }
 
-        // Radius of Earth in meters (WGS84 average)
-        final double EARTH_RADIUS = 6378137.0; // Equatorial radius is often used as a good average
 
-        // Ensure the polygon is closed (first and last point are the same)
+        final double EARTH_RADIUS = 6378137.0;
+
+
         List<GeoPoint> closedPoints = new java.util.ArrayList<>(points);
         if (!points.get(0).equals(points.get(points.size() - 1))) {
             closedPoints.add(points.get(0));
         }
 
-        // Using the spherical excess formula
-        // Sum (lon_i - lon_i-1) * (2 + sin(lat_i) + sin(lat_i-1))
         for (int i = 0; i < closedPoints.size() - 1; i++) {
             GeoPoint p1 = closedPoints.get(i);
             GeoPoint p2 = closedPoints.get(i + 1);
@@ -1429,10 +1449,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         }
 
         area = area * EARTH_RADIUS * EARTH_RADIUS / 2.0;
-        return Math.abs(area); // Area should always be positive
+        return Math.abs(area);
     }
 
-    // Helper for formatting length/area
+
     private String formatDistance(double meters) {
         if (meters < 1000) {
             return String.format("%.2f m", meters);
@@ -1442,7 +1462,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     }
 
     private String formatArea(double squareMeters) {
-        if (squareMeters < 1000000) { // Less than 1 square kilometer
+        if (squareMeters < 1000000) {
             return String.format("%.2f sq m", squareMeters);
         } else {
             return String.format("%.2f sq km", squareMeters / 1000000.0);
@@ -1682,39 +1702,36 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         if (iconResourceId != R.drawable.radio) {
             customMarker.setOnMarkerClickListener((marker, mv) -> {
                 if (IS_EDIT_MODE == 0) {
-                    // Get the GeoPoint from the marker
+
                     GeoPoint markerGeoPoint = (GeoPoint) marker.getPosition();
 
-                    // Extract latitude and longitude
+
                     double latitude = markerGeoPoint.getLatitude();
                     double longitude = markerGeoPoint.getLongitude();
 
-                    // Convert to MGRS
-                    // Ensure you have imported mil.nga.mgrs.MGRS
-                    // and mil.nga.mgrs.Point if it's explicitly used for the conversion
                     MGRS mgrsObject = null;
-                    String mgrsCoordinateString = "N/A"; // Default in case of parsing error
+                    String mgrsCoordinateString = "N/A";
                     try {
                         mgrsObject = MGRS.from(longitude, latitude);
                         mgrsCoordinateString = mgrsObject.coordinate();
                     } catch (Exception e) {
-                        // Log the error or handle it as appropriate
+
                         e.printStackTrace();
                         mgrsCoordinateString = "Error converting MGRS";
                     }
 
 
-                    // Construct the message string with the new coordinate info
+
                     String message = "Label: " + marker.getTitle() + "\n" +
                             "ID: " + marker.getId() + "\n" +
-                            "Latitude: " + String.format("%.6f", latitude) + "\n" +  // Format for precision
-                            "Longitude: " + String.format("%.6f", longitude) + "\n" + // Format for precision
+                            "Latitude: " + String.format("%.6f", latitude) + "\n" +
+                            "Longitude: " + String.format("%.6f", longitude) + "\n" +
                             "MGRS Coord: " + mgrsCoordinateString + "\n\n" +
                             "Remove this pin?";
 
                     new AlertDialog.Builder(MainActivity.this)
                             .setTitle("Pin Options")
-                            .setMessage(message) // Use the constructed message
+                            .setMessage(message)
                             .setPositiveButton("Remove", (dialog, which) -> {
                                 if (marker.getId() != null) {
                                     removeCustomPinAndNotify(marker, marker.getId());

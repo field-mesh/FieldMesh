@@ -5,7 +5,6 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
-// import android.content.Context; // If your Grids or Paint setup needs a Context
 
 import org.osmdroid.util.BoundingBox;
 import org.osmdroid.views.MapView;
@@ -18,8 +17,7 @@ import mil.nga.grid.features.Line;
 import mil.nga.mgrs.features.GridLine;
 import mil.nga.mgrs.grid.GridLabel;
 import mil.nga.mgrs.grid.GridLabeler;
-import mil.nga.mgrs.grid.GridType;
-import mil.nga.mgrs.grid.style.ZoomGrids; // Android specific styled ZoomGrids
+import mil.nga.mgrs.grid.style.ZoomGrids;
 import mil.nga.mgrs.gzd.GridRange;
 import mil.nga.mgrs.gzd.GridZone;
 import mil.nga.mgrs.gzd.GridZones;
@@ -27,9 +25,8 @@ import mil.nga.grid.features.Point;
 
 public class MGRSOSMOverlay extends Overlay {
 
-    private final mil.nga.mgrs.grid.style.Grids grids; // Use the Android-styled Grids
+    private final mil.nga.mgrs.grid.style.Grids grids;
 
-    // --- Reusable objects to reduce allocations in draw methods ---
     private final org.osmdroid.util.GeoPoint mReusableOsmPoint1 = new org.osmdroid.util.GeoPoint(0,0);
     private final org.osmdroid.util.GeoPoint mReusableOsmPoint2 = new org.osmdroid.util.GeoPoint(0,0);
     private final org.osmdroid.util.GeoPoint mReusableOsmCenter = new org.osmdroid.util.GeoPoint(0,0);
@@ -38,88 +35,81 @@ public class MGRSOSMOverlay extends Overlay {
     private final android.graphics.Point mReusableScreenPoint2 = new android.graphics.Point();
     private final android.graphics.Point mReusableScreenCenter = new android.graphics.Point();
 
-    private final Path mLinePath = new Path(); // Reusable Path for drawing lines
-    private final Rect mTextMeasureRect = new Rect(); // Reusable Rect for measuring text
+    private final Path mLinePath = new Path();
+    private final Rect mTextMeasureRect = new Rect();
 
-    // --- ADDED Reusable RectF members for projections ---
+
     private final RectF mReusableClipScreenRect = new RectF();
     private final RectF mReusableLabelCellScreenBounds = new RectF();
 
 
-    /**
-     * Constructor for the MGRS Overlay.
-     * @param grids The configured MGRS Grids object to draw.
-     */
+
     public MGRSOSMOverlay(mil.nga.mgrs.grid.style.Grids grids) {
-        super(); // Default constructor for Overlay
+        super();
         this.grids = grids;
     }
 
     @Override
     public void draw(Canvas canvas, MapView mapView, boolean shadow) {
         if (shadow) {
-            return; // Don't draw shadows
+            return;
         }
 
         Projection projection = mapView.getProjection();
         BoundingBox osmVisibleBounds = mapView.getBoundingBox();
 
-        // Convert osmdroid BoundingBox to NGA Bounds
+
         mil.nga.grid.features.Bounds ngaVisibleBounds = new mil.nga.grid.features.Bounds(
                 osmVisibleBounds.getLonWest(), osmVisibleBounds.getLatSouth(),
                 osmVisibleBounds.getLonEast(), osmVisibleBounds.getLatNorth()
         );
 
-        int zoom = (int) mapView.getZoomLevelDouble(); // Use integer zoom level
+        int zoom = (int) mapView.getZoomLevelDouble();
 
-        ZoomGrids zoomGrids = this.grids.getGrids(zoom); // Get styled ZoomGrids
+        ZoomGrids zoomGrids = this.grids.getGrids(zoom);
         if (zoomGrids == null || !zoomGrids.hasGrids()) {
             return;
         }
 
-        // Determine the range of grid zones to consider based on visible bounds
+
         GridRange gridRange = GridZones.getGridRange(ngaVisibleBounds);
 
-        for (mil.nga.mgrs.grid.style.Grid gridStyle : zoomGrids.grids()) { // Iterate styled Grids
+        for (mil.nga.mgrs.grid.style.Grid gridStyle : zoomGrids.grids()) {
 
-            Paint labelPaint = gridStyle.getLabelPaint(); // This paint is pre-configured
+            Paint labelPaint = gridStyle.getLabelPaint();
 
             for (GridZone zone : gridRange) {
-                // Check if the current zone actually intersects the visible map bounds
+
                 mil.nga.grid.features.Bounds zoneGeoBounds = zone.getBounds();
                 if (!zoneGeoBounds.intersects(ngaVisibleBounds, true)) {
                     continue;
                 }
 
-                // Calculate the geographic bounds of what's actually visible for this zone
+
                 mil.nga.grid.features.Bounds visiblePortionOfZoneGeo = zoneGeoBounds.overlap(ngaVisibleBounds);
                 if (visiblePortionOfZoneGeo == null || visiblePortionOfZoneGeo.isEmpty()) {
                     continue;
                 }
 
-                // Project the visible portion of the zone to screen coordinates for clipping
-                // Use the modified projectNgaBoundsToScreenRect with the reusable member
+
                 projectNgaBoundsToScreenRect(visiblePortionOfZoneGeo, projection, mReusableClipScreenRect);
                 if (mReusableClipScreenRect.width() <= 0 || mReusableClipScreenRect.height() <= 0) { // Check if the projected rect is valid/visible
                     continue;
                 }
 
-                // --- Draw Lines for the current GridStyle and Zone ---
+
                 List<GridLine> lines = zone.getLines(visiblePortionOfZoneGeo, gridStyle.getType());
                 if (lines != null && !lines.isEmpty()) {
-                    // Pass the populated mReusableClipScreenRect
+
                     drawNgaLinesOnCanvas(canvas, projection, lines, gridStyle, mReusableClipScreenRect);
                 }
 
-                // --- Draw Labels for the current GridStyle and Zone ---
+
                 GridLabeler labeler = gridStyle.getLabeler();
-                // Your note: "!!! CRITICAL FIX: Use labeler.isEnabled(zoom) !!!"
-                // Ensure you are using the correct method from the library, e.g., labeler.isEnabled(zoom) if available and appropriate.
-                // The code currently uses labeler.isEnabled() as per your original snippet.
                 if (labeler != null && labeler.isEnabled() && labelPaint != null) {
                     List<GridLabel> labels = labeler.getLabels(visiblePortionOfZoneGeo, gridStyle.getType(), zone);
                     if (labels != null && !labels.isEmpty()) {
-                        // Pass the populated mReusableClipScreenRect
+
                         drawNgaLabelsOnCanvas(canvas, projection, labels, gridStyle.getLabelBuffer(), labelPaint, mReusableClipScreenRect);
                     }
                 }
@@ -127,10 +117,7 @@ public class MGRSOSMOverlay extends Overlay {
         }
     }
 
-    /**
-     * Draws NGA GridLines directly onto the canvas.
-     * clipRectScreen is a pre-populated, reusable RectF.
-     */
+
     private void drawNgaLinesOnCanvas(Canvas canvas, Projection projection, List<GridLine> ngaLines,
                                       mil.nga.mgrs.grid.style.Grid gridStyle, RectF clipRectScreen) {
         canvas.save();
@@ -158,10 +145,7 @@ public class MGRSOSMOverlay extends Overlay {
         canvas.restore();
     }
 
-    /**
-     * Draws NGA GridLabels directly onto the canvas.
-     * clipRectScreen is a pre-populated, reusable RectF.
-     */
+
     private void drawNgaLabelsOnCanvas(Canvas canvas, Projection projection, List<GridLabel> ngaLabels,
                                        double buffer, Paint labelPaint, RectF clipRectScreen) {
         canvas.save();
@@ -173,7 +157,7 @@ public class MGRSOSMOverlay extends Overlay {
 
             labelPaint.getTextBounds(name, 0, name.length(), mTextMeasureRect);
 
-            // Use the modified projectNgaBoundsToScreenRect with the other reusable member
+
             projectNgaBoundsToScreenRect(ngaLabel.getBounds(), projection, mReusableLabelCellScreenBounds);
             if (mReusableLabelCellScreenBounds.width() <= 0 || mReusableLabelCellScreenBounds.height() <= 0) continue;
 
@@ -188,7 +172,6 @@ public class MGRSOSMOverlay extends Overlay {
                 mReusableOsmCenter.setCoords(centerGeo.getLatitude(), centerGeo.getLongitude());
                 projection.toPixels(mReusableOsmCenter, mReusableScreenCenter);
 
-                // Check if the label center is within the (already clipped) drawing area
                 if (clipRectScreen.contains(mReusableScreenCenter.x, mReusableScreenCenter.y)) {
                     canvas.drawText(name,
                             mReusableScreenCenter.x - mTextMeasureRect.exactCenterX(),
@@ -200,21 +183,17 @@ public class MGRSOSMOverlay extends Overlay {
         canvas.restore();
     }
 
-    /**
-     * Helper to project NGA geographic Bounds to a screen RectF.
-     * This version populates a provided 'outRectScreen' RectF parameter to avoid allocations.
-     */
+
     private void projectNgaBoundsToScreenRect(mil.nga.grid.features.Bounds ngaBounds, Projection projection, RectF outRectScreen) {
         Point swGeo = ngaBounds.getSouthwest().toDegrees();
         Point neGeo = ngaBounds.getNortheast().toDegrees();
 
-        // Use reusable GeoPoint members sequentially for intermediate conversion
+
         mReusableOsmPoint1.setCoords(swGeo.getLatitude(), swGeo.getLongitude());
         mReusableOsmPoint2.setCoords(neGeo.getLatitude(), neGeo.getLongitude());
 
-        // Pass reusable screen points to toPixels to be populated
-        projection.toPixels(mReusableOsmPoint1, mReusableScreenPoint1); // mReusableScreenPoint1 gets SW
-        projection.toPixels(mReusableOsmPoint2, mReusableScreenPoint2); // mReusableScreenPoint2 gets NE
+        projection.toPixels(mReusableOsmPoint1, mReusableScreenPoint1);
+        projection.toPixels(mReusableOsmPoint2, mReusableScreenPoint2);
 
         outRectScreen.set(
                 Math.min(mReusableScreenPoint1.x, mReusableScreenPoint2.x),
