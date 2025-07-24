@@ -914,7 +914,7 @@ public class MeshReceiverService extends Service implements MessageClient.OnMess
         JSONObject batchData = new JSONObject();
         try {
             JSONArray pinsJsonArray = new JSONArray();
-            List<PinInfo> allPins = mapDataDbHelper.getAllPins();
+            List<PinInfo> allPins = mapDataDbHelper.getAllPins("Global");
             for (PinInfo pin : allPins) {
                 JSONObject pinJson = new JSONObject();
                 pinJson.put("uuid", pin.getUniqueId());
@@ -928,7 +928,7 @@ public class MeshReceiverService extends Service implements MessageClient.OnMess
             batchData.put("pins", pinsJsonArray);
 
             JSONArray linesJsonArray = new JSONArray();
-            List<LineInfo> allLines = mapDataDbHelper.getAllLines();
+            List<LineInfo> allLines = mapDataDbHelper.getAllLines("Global");
             for (LineInfo line : allLines) {
                 JSONObject lineJson = new JSONObject();
                 lineJson.put("uuid", line.getUniqueId());
@@ -948,7 +948,7 @@ public class MeshReceiverService extends Service implements MessageClient.OnMess
             batchData.put("lines", linesJsonArray);
 
             JSONArray polygonsJsonArray = new JSONArray();
-            List<PolygonInfo> allPolygons = mapDataDbHelper.getAllPolygons();
+            List<PolygonInfo> allPolygons = mapDataDbHelper.getAllPolygons("Global");
             for (PolygonInfo poly : allPolygons) {
                 JSONObject polyJson = new JSONObject();
                 polyJson.put("uuid", poly.getUniqueId());
@@ -970,7 +970,7 @@ public class MeshReceiverService extends Service implements MessageClient.OnMess
             batchData.put("polygons", polygonsJsonArray);
 
             JSONArray circlesJsonArray = new JSONArray();
-            List<CircleInfo> allCircles = mapDataDbHelper.getAllCircles();
+            List<CircleInfo> allCircles = mapDataDbHelper.getAllCircles("Global");
             for (CircleInfo circle : allCircles) {
                 JSONObject circleJson = new JSONObject();
                 circleJson.put("uuid", circle.getUniqueId());

@@ -14,30 +14,37 @@ public class CircleInfo {
     private int elevation;
     private String label;
     private String uniqueId;
+    // FIX: Changed to byte for efficiency. 0 = Global.
+    private byte squadId;
+
     private static final String LABEL_CHARS_LOOKUP = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ";
     private static final int MAX_LABEL_LENGTH = 10;
     private static final int END_OF_LABEL_MARKER_VALUE = 37;
     private static final char DEFAULT_CHAR_FOR_INVALID_INPUT = 'A';
 
-    private static final int ENCODED_BYTE_LENGTH = 31;
+    // FIX: Increased byte length to 32 to accommodate the squadId byte.
+    private static final int ENCODED_BYTE_LENGTH = 32;
 
     public CircleInfo() {
         String fullUUID = UUID.randomUUID().toString();
         this.uniqueId = fullUUID.substring(0, 8);
+        this.squadId = 0; // Default to Global
     }
 
-    public double getRadius() {
-        return radius;
-    }
+    // --- Getters ---
+    public double getRadius() { return radius; }
+    public int getColor() { return color; }
+    public byte getSquadId() { return squadId; }
+    public int getLineType() { return lineType; }
+    public double getLatitude() { return latitude; }
+    public double getLongitude() { return longitude; }
+    public int getElevation() { return elevation; }
+    public String getLabel() { return label; }
+    public String getUniqueId() { return uniqueId; }
 
-    public void setRadius(double radius) {
-        this.radius = radius;
-    }
-
-    public int getColor() {
-        return color;
-    }
-
+    // --- Setters ---
+    public void setRadius(double radius) { this.radius = radius; }
+    public void setSquadId(byte squadId) { this.squadId = squadId; }
     public void setColor(int color) {
         if (color >= 0 && color <= 3) {
             this.color = color;
@@ -45,11 +52,6 @@ public class CircleInfo {
             throw new IllegalArgumentException(String.valueOf(io.github.fieldmesh.R.string.intValueRangeWarning));
         }
     }
-
-    public int getLineType() {
-        return lineType;
-    }
-
     public void setLineType(int lineType) {
         if (lineType >= 0 && lineType <= 1) {
             this.lineType = lineType;
@@ -57,35 +59,9 @@ public class CircleInfo {
             throw new IllegalArgumentException(String.valueOf(io.github.fieldmesh.R.string.lineTypeWarning));
         }
     }
-
-    public double getLatitude() {
-        return latitude;
-    }
-
-    public void setLatitude(double latitude) {
-        this.latitude = latitude;
-    }
-
-    public double getLongitude() {
-        return longitude;
-    }
-
-    public void setLongitude(double longitude) {
-        this.longitude = longitude;
-    }
-
-    public int getElevation() {
-        return elevation;
-    }
-
-    public void setElevation(int elevation) {
-        this.elevation = elevation;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
+    public void setLatitude(double latitude) { this.latitude = latitude; }
+    public void setLongitude(double longitude) { this.longitude = longitude; }
+    public void setElevation(int elevation) { this.elevation = elevation; }
     public void setLabel(String label) {
         if (label != null && label.length() > MAX_LABEL_LENGTH) {
             this.label = label.substring(0, MAX_LABEL_LENGTH);
@@ -93,22 +69,15 @@ public class CircleInfo {
             this.label = label;
         }
     }
-
-    public String getUniqueId() {
-        return uniqueId;
-    }
-
-    public void setUniqueId(String uniqueId) {
-        this.uniqueId = uniqueId;
-    }
+    public void setUniqueId(String uniqueId) { this.uniqueId = uniqueId; }
 
     public byte[] encode() {
         ByteBuffer buffer = ByteBuffer.allocate(ENCODED_BYTE_LENGTH);
         buffer.order(ByteOrder.BIG_ENDIAN);
 
-        buffer.putInt((int) (this.latitude * 1E7));
-        buffer.putInt((int) (this.longitude * 1E7));
-        buffer.putFloat((float) this.radius);
+        buffer.putInt((int) (this.latitude * 1E7)); // 4 bytes
+        buffer.putInt((int) (this.longitude * 1E7)); // 4 bytes
+        buffer.putFloat((float) this.radius); // 4 bytes
 
         byte[] labelBytes = new byte[8];
         String currentLabel = this.label;
@@ -127,7 +96,6 @@ public class CircleInfo {
                 charVals[i] = END_OF_LABEL_MARKER_VALUE;
             }
         }
-
         labelBytes[0] = (byte) ((charVals[0] << 2) | (charVals[1] >> 4));
         labelBytes[1] = (byte) (((charVals[1] & 0x0F) << 4) | (charVals[2] >> 2));
         labelBytes[2] = (byte) (((charVals[2] & 0x03) << 6) | charVals[3]);
@@ -135,29 +103,34 @@ public class CircleInfo {
         labelBytes[4] = (byte) (((charVals[5] & 0x0F) << 4) | (charVals[6] >> 2));
         labelBytes[5] = (byte) (((charVals[6] & 0x03) << 6) | charVals[7]);
         labelBytes[6] = (byte) ((charVals[8] << 2) | (charVals[9] >> 4));
-        labelBytes[7] = (byte) ((charVals[9] & 0x0F) << 4);
+        labelBytes[7] = (byte) (((charVals[9] & 0x0F) << 4));
+        buffer.put(labelBytes); // 8 bytes
 
-        buffer.put(labelBytes);
-
-        buffer.putShort((short) this.elevation);
+        buffer.putShort((short) this.elevation); // 2 bytes
 
         byte packedColorLineType = (byte) (((this.color & 0x03) << 1) | (this.lineType & 0x01));
-        buffer.put(packedColorLineType);
+        buffer.put(packedColorLineType); // 1 byte
+
+        // FIX: Encode the squadId byte
+        buffer.put(this.squadId); // 1 byte
 
         byte[] uidBytes = new byte[8];
         if (this.uniqueId != null && !this.uniqueId.isEmpty()) {
             byte[] actualUidBytes = this.uniqueId.getBytes(StandardCharsets.UTF_8);
             System.arraycopy(actualUidBytes, 0, uidBytes, 0, Math.min(actualUidBytes.length, 8));
         }
-        buffer.put(uidBytes);
+        buffer.put(uidBytes); // 8 bytes
+        // Total = 4+4+4+8+2+1+1+8 = 32 bytes
 
         return buffer.array();
     }
 
     public void decode(byte[] data) {
-        if (data == null || data.length < ENCODED_BYTE_LENGTH) {
-            throw new IllegalArgumentException("Data array too short for CircleInfo. Expected " +
-                    ENCODED_BYTE_LENGTH + " bytes, got " +
+        // Use original length for backward compatibility check
+        final int ORIGINAL_ENCODED_BYTE_LENGTH = 31;
+        if (data == null || data.length < ORIGINAL_ENCODED_BYTE_LENGTH) {
+            throw new IllegalArgumentException("Data array too short for CircleInfo. Expected at least " +
+                    ORIGINAL_ENCODED_BYTE_LENGTH + " bytes, got " +
                     (data == null ? "null" : data.length));
         }
         ByteBuffer buffer = ByteBuffer.wrap(data);
@@ -170,7 +143,6 @@ public class CircleInfo {
         byte[] labelBytes = new byte[8];
         buffer.get(labelBytes);
         int[] charVals = new int[MAX_LABEL_LENGTH];
-
         charVals[0] = (labelBytes[0] >> 2) & 0x3F;
         charVals[1] = ((labelBytes[0] & 0x03) << 4) | ((labelBytes[1] >> 4) & 0x0F);
         charVals[2] = ((labelBytes[1] & 0x0F) << 2) | ((labelBytes[2] >> 6) & 0x03);
@@ -181,7 +153,6 @@ public class CircleInfo {
         charVals[7] = labelBytes[5] & 0x3F;
         charVals[8] = (labelBytes[6] >> 2) & 0x3F;
         charVals[9] = ((labelBytes[6] & 0x03) << 4) | ((labelBytes[7] >> 4) & 0x0F);
-
 
         StringBuilder labelBuilder = new StringBuilder(MAX_LABEL_LENGTH);
         for (int i = 0; i < MAX_LABEL_LENGTH; i++) {
@@ -202,6 +173,14 @@ public class CircleInfo {
         byte packedColorLineType = buffer.get();
         this.color = (packedColorLineType >> 1) & 0x03;
         this.lineType = packedColorLineType & 0x01;
+
+        // FIX: Decode squadId, checking for buffer length to support old packets
+        if (data.length >= ENCODED_BYTE_LENGTH) {
+            this.squadId = buffer.get();
+        } else {
+            this.squadId = 0; // Default to Global for old packets
+        }
+
         byte[] uidBytes = new byte[8];
         buffer.get(uidBytes);
         int uidLength = 0;

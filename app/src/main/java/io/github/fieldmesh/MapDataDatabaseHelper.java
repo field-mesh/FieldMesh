@@ -27,7 +27,8 @@ import java.security.NoSuchAlgorithmException;
 public class MapDataDatabaseHelper extends SQLiteOpenHelper {
     private static final String TAG = "MapDataDatabaseHelper";
     private static final String DATABASE_NAME = "map_data.db";
-    private static final int DATABASE_VERSION = 2;
+    // [FIX 1/3] Incremented the database version to trigger onUpgrade.
+    private static final int DATABASE_VERSION = 4;
     private static final String TABLE_MAP_OBJECTS = "map_objects";
     private static final String COLUMN_MO_ID = "_id";
     private static final String COLUMN_MO_UNIQUE_ID = "unique_id";
@@ -46,6 +47,8 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_PD_ICON_RESOURCE_ID = "icon_resource_id";
     private static final String COLUMN_PD_ELEVATION = "elevation";
     private static final String COLUMN_PD_ROTATION = "rotation";
+    private static final String COLUMN_MO_SQUAD_ID = "squad_id";
+
 
     private static final String TABLE_CIRCLE_DETAILS = "circle_details";
     private static final String COLUMN_CD_OBJECT_ID = "object_id";
@@ -73,6 +76,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_MO_OBJECT_TYPE + " TEXT NOT NULL, " +
                     COLUMN_MO_LABEL + " TEXT, " +
                     COLUMN_MO_COLOR + " INTEGER NOT NULL, " +
+                    COLUMN_MO_SQUAD_ID + " INTEGER, " +
                     COLUMN_MO_IS_DELETED + " INTEGER NOT NULL DEFAULT 0);";
 
     private static final String CREATE_TABLE_PIN_DETAILS =
@@ -131,8 +135,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         Log.w(TAG, "Upgrading database from version " + oldVersion + " to " + newVersion + ", which will destroy all old data if not migrating carefully.");
-        if (oldVersion < 2 && newVersion >= 2) {
-        }
+        // A simple drop and recreate strategy. For production, you would use ALTER TABLE.
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_OBJECT_COORDINATES);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_POLYGON_DETAILS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_LINE_DETAILS);
@@ -148,7 +151,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         db.setForeignKeyConstraintsEnabled(true);
     }
 
-    private long addMapObjectEntry(SQLiteDatabase db, String uniqueId, String objectType, String label, int color) {
+    private long addMapObjectEntry(SQLiteDatabase db, String uniqueId, String objectType, String label, int color, byte squadId) {
         if (uniqueId == null || uniqueId.isEmpty()) {
             Log.e(TAG, "Unique ID cannot be null or empty for MapObject entry.");
             return -1;
@@ -158,6 +161,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_MO_OBJECT_TYPE, objectType);
         values.put(COLUMN_MO_LABEL, label);
         values.put(COLUMN_MO_COLOR, color);
+        values.put(COLUMN_MO_SQUAD_ID, squadId);
         values.put(COLUMN_MO_IS_DELETED, 0);
         return db.insert(TABLE_MAP_OBJECTS, null, values);
     }
@@ -175,7 +179,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         db.beginTransaction();
         long objectId = -1;
         try {
-            objectId = addMapObjectEntry(db, pin.getUniqueId(), OBJECT_TYPE_PIN, pin.getLabel(), pin.getColor());
+            objectId = addMapObjectEntry(db, pin.getUniqueId(), OBJECT_TYPE_PIN, pin.getLabel(), pin.getColor(), pin.getSquadId());
             if (objectId == -1) {
                 Log.e(TAG, "Failed to add Pin to MapObjects table for uniqueId: " + pin.getUniqueId() + ". It might already exist.");
                 long existingId = getMapObjectId(db, pin.getUniqueId(), OBJECT_TYPE_PIN, true, false);
@@ -229,7 +233,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         db.beginTransaction();
         long objectId = -1;
         try {
-            objectId = addMapObjectEntry(db, circle.getUniqueId(), OBJECT_TYPE_CIRCLE, circle.getLabel(), circle.getColor());
+            objectId = addMapObjectEntry(db, circle.getUniqueId(), OBJECT_TYPE_CIRCLE, circle.getLabel(), circle.getColor(), circle.getSquadId());
             if (objectId == -1) {
                 Log.e(TAG, "Failed to add Circle to MapObjects table for uniqueId: " + circle.getUniqueId() + ". It might already exist.");
                 return -1;
@@ -259,7 +263,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         return objectId;
     }
 
-    private long addLineOrPolygon(String uniqueId, String label, int color, List<LineInfo.Coordinate> points, String objectType, String detailTable) {
+    private long addLineOrPolygon(String uniqueId, String label, int color, List<LineInfo.Coordinate> points, String objectType, String detailTable, byte squadId) {
         if (uniqueId == null || uniqueId.isEmpty()) {
             Log.e(TAG, objectType + " UniqueId is null/empty. Cannot add to DB.");
             return -1;
@@ -268,7 +272,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         db.beginTransaction();
         long objectId = -1;
         try {
-            objectId = addMapObjectEntry(db, uniqueId, objectType, label, color);
+            objectId = addMapObjectEntry(db, uniqueId, objectType, label, color, squadId);
             if (objectId == -1) {
                 Log.e(TAG, "Failed to add " + objectType + " to MapObjects table for uniqueId: " + uniqueId + ". It might already exist.");
                 return -1;
@@ -319,7 +323,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
                 coordsForDb.add(new LineInfo.Coordinate(gp.getLatitude(), gp.getLongitude(), (int)gp.getAltitude()));
             }
         }
-        return addLineOrPolygon(line.getUniqueId(), line.getLabel(), line.getColor(), coordsForDb, OBJECT_TYPE_LINE, TABLE_LINE_DETAILS);
+        return addLineOrPolygon(line.getUniqueId(), line.getLabel(), line.getColor(), coordsForDb, OBJECT_TYPE_LINE, TABLE_LINE_DETAILS, line.getSquadId());
     }
 
 
@@ -331,7 +335,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
                 coordsForDb.add(new LineInfo.Coordinate(gp.getLatitude(), gp.getLongitude(), (int)gp.getAltitude()));
             }
         }
-        return addLineOrPolygon(polygon.getUniqueId(), polygon.getLabel(), polygon.getColor(), coordsForDb, OBJECT_TYPE_POLYGON, TABLE_POLYGON_DETAILS);
+        return addLineOrPolygon(polygon.getUniqueId(), polygon.getLabel(), polygon.getColor(), coordsForDb, OBJECT_TYPE_POLYGON, TABLE_POLYGON_DETAILS, polygon.getSquadId());
     }
 
     private Cursor getMapObjectCursor(SQLiteDatabase readableDb, String uniqueId, String objectType) {
@@ -477,13 +481,26 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         return polygon;
     }
 
-    public List<PinInfo> getAllPins() {
+    public List<PinInfo> getAllPins(String currentSquadName) {
         List<PinInfo> pins = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
-        String query = "SELECT mo.*, pd.* FROM " + TABLE_MAP_OBJECTS + " mo JOIN " +
+        String query;
+        String[] selectionArgs;
+
+        String baseQuery = "SELECT mo.*, pd.* FROM " + TABLE_MAP_OBJECTS + " mo JOIN " +
                 TABLE_PIN_DETAILS + " pd ON mo." + COLUMN_MO_ID + " = pd." + COLUMN_PD_OBJECT_ID +
                 " WHERE mo." + COLUMN_MO_OBJECT_TYPE + " = ? AND mo." + COLUMN_MO_IS_DELETED + " = 0";
-        Cursor cursor = db.rawQuery(query, new String[]{OBJECT_TYPE_PIN});
+
+        if (currentSquadName == null || "Global".equalsIgnoreCase(currentSquadName)) {
+            query = baseQuery;
+            selectionArgs = new String[]{OBJECT_TYPE_PIN};
+        } else {
+            byte squadIdByte = SquadIndex.getIdByName(currentSquadName);
+            query = baseQuery + " AND (mo." + COLUMN_MO_SQUAD_ID + " = 0 OR mo." + COLUMN_MO_SQUAD_ID + " IS NULL OR mo." + COLUMN_MO_SQUAD_ID + " = ?)";
+            selectionArgs = new String[]{OBJECT_TYPE_PIN, String.valueOf(squadIdByte)};
+        }
+
+        Cursor cursor = db.rawQuery(query, selectionArgs);
 
         if (cursor.moveToFirst()) {
             do {
@@ -491,6 +508,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
                 pin.setUniqueId(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MO_UNIQUE_ID)));
                 pin.setLabel(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MO_LABEL)));
                 pin.setColor(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MO_COLOR)));
+                pin.setSquadId( (byte) cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MO_SQUAD_ID)) );
                 pin.setLatitude(cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_PD_LATITUDE)));
                 pin.setLongitude(cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_PD_LONGITUDE)));
                 pin.setIconResourceId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PD_ICON_RESOURCE_ID)));
@@ -500,17 +518,30 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        Log.i(TAG, "Loaded " + pins.size() + " non-deleted pins from database.");
+        Log.i(TAG, "Loaded " + pins.size() + " visible pins from database.");
         return pins;
     }
 
-    public List<CircleInfo> getAllCircles() {
+    public List<CircleInfo> getAllCircles(String currentSquadName) {
         List<CircleInfo> circles = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
-        String query = "SELECT mo.*, cd.* FROM " + TABLE_MAP_OBJECTS + " mo JOIN " +
+        String query;
+        String[] selectionArgs;
+
+        String baseQuery = "SELECT mo.*, cd.* FROM " + TABLE_MAP_OBJECTS + " mo JOIN " +
                 TABLE_CIRCLE_DETAILS + " cd ON mo." + COLUMN_MO_ID + " = cd." + COLUMN_CD_OBJECT_ID +
                 " WHERE mo." + COLUMN_MO_OBJECT_TYPE + " = ? AND mo." + COLUMN_MO_IS_DELETED + " = 0";
-        Cursor cursor = db.rawQuery(query, new String[]{OBJECT_TYPE_CIRCLE});
+
+        if (currentSquadName == null || "Global".equalsIgnoreCase(currentSquadName)) {
+            query = baseQuery;
+            selectionArgs = new String[]{OBJECT_TYPE_CIRCLE};
+        } else {
+            byte squadIdByte = SquadIndex.getIdByName(currentSquadName);
+            query = baseQuery + " AND (mo." + COLUMN_MO_SQUAD_ID + " = 0 OR mo." + COLUMN_MO_SQUAD_ID + " IS NULL OR mo." + COLUMN_MO_SQUAD_ID + " = ?)";
+            selectionArgs = new String[]{OBJECT_TYPE_CIRCLE, String.valueOf(squadIdByte)};
+        }
+
+        Cursor cursor = db.rawQuery(query, selectionArgs);
 
         if (cursor.moveToFirst()) {
             do {
@@ -518,6 +549,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
                 circle.setUniqueId(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MO_UNIQUE_ID)));
                 circle.setLabel(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MO_LABEL)));
                 circle.setColor(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MO_COLOR)));
+                circle.setSquadId( (byte) cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MO_SQUAD_ID)) );
                 circle.setLatitude(cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_CD_LATITUDE)));
                 circle.setLongitude(cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_CD_LONGITUDE)));
                 circle.setRadius(cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_CD_RADIUS)));
@@ -527,38 +559,89 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        Log.i(TAG, "Loaded " + circles.size() + " non-deleted circles from database.");
+        Log.i(TAG, "Loaded " + circles.size() + " visible circles from database.");
         return circles;
     }
 
-    public List<LineInfo> getAllLines() {
+    public List<LineInfo> getAllLines(String currentSquadName) {
         List<LineInfo> lines = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
-        String mapObjectsQuery = "SELECT * FROM " + TABLE_MAP_OBJECTS +
-                " WHERE " + COLUMN_MO_OBJECT_TYPE + " = ? AND " + COLUMN_MO_IS_DELETED + " = 0";
-        Cursor mapObjectCursor = db.rawQuery(mapObjectsQuery, new String[]{OBJECT_TYPE_LINE});
+        String mapObjectsQuery;
+        String[] selectionArgs;
+
+        String baseQuery = "SELECT * FROM " + TABLE_MAP_OBJECTS + " mo" +
+                " WHERE mo." + COLUMN_MO_OBJECT_TYPE + " = ? AND mo." + COLUMN_MO_IS_DELETED + " = 0";
+
+        if (currentSquadName == null || "Global".equalsIgnoreCase(currentSquadName)) {
+            mapObjectsQuery = baseQuery;
+            selectionArgs = new String[]{OBJECT_TYPE_LINE};
+        } else {
+            byte squadIdByte = SquadIndex.getIdByName(currentSquadName);
+            mapObjectsQuery = baseQuery + " AND (mo." + COLUMN_MO_SQUAD_ID + " = 0 OR mo." + COLUMN_MO_SQUAD_ID + " IS NULL OR mo." + COLUMN_MO_SQUAD_ID + " = ?)";
+            selectionArgs = new String[]{OBJECT_TYPE_LINE, String.valueOf(squadIdByte)};
+        }
+
+        Cursor mapObjectCursor = db.rawQuery(mapObjectsQuery, selectionArgs);
 
         if (mapObjectCursor.moveToFirst()) {
             do {
                 long objectId = mapObjectCursor.getLong(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_ID));
-                Cursor lineDetailCursor = db.query(TABLE_LINE_DETAILS, new String[]{COLUMN_LD_OBJECT_ID}, COLUMN_LD_OBJECT_ID + " = ?", new String[]{String.valueOf(objectId)}, null, null, null);
-                boolean existsInLineDetails = lineDetailCursor.moveToFirst();
-                lineDetailCursor.close();
+                LineInfo line = new LineInfo();
+                line.setUniqueId(mapObjectCursor.getString(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_UNIQUE_ID)));
+                line.setLabel(mapObjectCursor.getString(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_LABEL)));
+                line.setColor(mapObjectCursor.getInt(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_COLOR)));
+                line.setSquadId( (byte) mapObjectCursor.getInt(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_SQUAD_ID)) );
 
-                if (existsInLineDetails) {
-                    LineInfo line = new LineInfo();
-                    line.setUniqueId(mapObjectCursor.getString(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_UNIQUE_ID)));
-                    line.setLabel(mapObjectCursor.getString(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_LABEL)));
-                    line.setColor(mapObjectCursor.getInt(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_COLOR)));
-                    List<LineInfo.Coordinate> points = getCoordinatesForObject(db, objectId);
-                    line.setPointsList(points);
-                    lines.add(line);
-                }
+                List<LineInfo.Coordinate> points = getCoordinatesForObject(db, objectId);
+                line.setPointsList(points);
+                lines.add(line);
+
             } while (mapObjectCursor.moveToNext());
         }
         mapObjectCursor.close();
-        Log.i(TAG, "Loaded " + lines.size() + " non-deleted lines from database.");
+        Log.i(TAG, "Loaded " + lines.size() + " visible lines from database.");
         return lines;
+    }
+
+    public List<PolygonInfo> getAllPolygons(String currentSquadName) {
+        List<PolygonInfo> polygons = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        String mapObjectsQuery;
+        String[] selectionArgs;
+
+        String baseQuery = "SELECT * FROM " + TABLE_MAP_OBJECTS + " mo" +
+                " WHERE mo." + COLUMN_MO_OBJECT_TYPE + " = ? AND mo." + COLUMN_MO_IS_DELETED + " = 0";
+
+        if (currentSquadName == null || "Global".equalsIgnoreCase(currentSquadName)) {
+            mapObjectsQuery = baseQuery;
+            selectionArgs = new String[]{OBJECT_TYPE_POLYGON};
+        } else {
+            byte squadIdByte = SquadIndex.getIdByName(currentSquadName);
+            mapObjectsQuery = baseQuery + " AND (mo." + COLUMN_MO_SQUAD_ID + " = 0 OR mo." + COLUMN_MO_SQUAD_ID + " IS NULL OR mo." + COLUMN_MO_SQUAD_ID + " = ?)";
+            selectionArgs = new String[]{OBJECT_TYPE_POLYGON, String.valueOf(squadIdByte)};
+        }
+
+        Cursor mapObjectCursor = db.rawQuery(mapObjectsQuery, selectionArgs);
+
+        if (mapObjectCursor.moveToFirst()) {
+            do {
+                long objectId = mapObjectCursor.getLong(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_ID));
+                PolygonInfo polygon = new PolygonInfo();
+                polygon.setUniqueId(mapObjectCursor.getString(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_UNIQUE_ID)));
+                polygon.setLabel(mapObjectCursor.getString(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_LABEL)));
+                polygon.setColor(mapObjectCursor.getInt(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_COLOR)));
+                polygon.setSquadId( (byte) mapObjectCursor.getInt(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_SQUAD_ID)) );
+
+                List<LineInfo.Coordinate> points = getCoordinatesForObject(db, objectId);
+                polygon.setPointsList(points);
+                polygons.add(polygon);
+
+            } while (mapObjectCursor.moveToNext());
+        }
+        mapObjectCursor.close();
+
+        Log.i(TAG, "Loaded " + polygons.size() + " visible polygons from database.");
+        return polygons;
     }
 
     public String getType(String uniqueId) {
@@ -598,37 +681,6 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
             }
         }
         return objectType;
-    }
-
-    public List<PolygonInfo> getAllPolygons() {
-        List<PolygonInfo> polygons = new ArrayList<>();
-        SQLiteDatabase db = this.getReadableDatabase();
-        String mapObjectsQuery = "SELECT * FROM " + TABLE_MAP_OBJECTS +
-                " WHERE " + COLUMN_MO_OBJECT_TYPE + " = ? AND " + COLUMN_MO_IS_DELETED + " = 0";
-        Cursor mapObjectCursor = db.rawQuery(mapObjectsQuery, new String[]{OBJECT_TYPE_POLYGON});
-
-        if (mapObjectCursor.moveToFirst()) {
-            do {
-                long objectId = mapObjectCursor.getLong(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_ID));
-                Cursor polyDetailCursor = db.query(TABLE_POLYGON_DETAILS, new String[]{COLUMN_POLY_OBJECT_ID}, COLUMN_POLY_OBJECT_ID + " = ?", new String[]{String.valueOf(objectId)}, null, null, null);
-                boolean existsInPolyDetails = polyDetailCursor.moveToFirst();
-                polyDetailCursor.close();
-
-                if(existsInPolyDetails) {
-                    PolygonInfo polygon = new PolygonInfo();
-                    polygon.setUniqueId(mapObjectCursor.getString(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_UNIQUE_ID)));
-                    polygon.setLabel(mapObjectCursor.getString(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_LABEL)));
-                    polygon.setColor(mapObjectCursor.getInt(mapObjectCursor.getColumnIndexOrThrow(COLUMN_MO_COLOR)));
-                    List<LineInfo.Coordinate> points = getCoordinatesForObject(db, objectId);
-                    polygon.setPointsList(points);
-                    polygons.add(polygon);
-                }
-            } while (mapObjectCursor.moveToNext());
-        }
-        mapObjectCursor.close();
-
-        Log.i(TAG, "Loaded " + polygons.size() + " non-deleted polygons from database.");
-        return polygons;
     }
 
     public int updatePin(PinInfo pin) {

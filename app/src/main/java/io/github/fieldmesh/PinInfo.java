@@ -9,6 +9,7 @@ public class PinInfo {
     private double latitude;
     private double longitude;
     private String label;
+    private byte squadId; // Added field
     private int iconResourceId;
     private int color;
     private int elevation;
@@ -20,18 +21,29 @@ public class PinInfo {
     private static final int END_OF_LABEL_MARKER_VALUE = 37;
     private static final char DEFAULT_CHAR_FOR_INVALID_INPUT = 'A';
 
-    private static final int ENCODED_BYTE_LENGTH = 29;
+    // FIX: Increased byte length to 30 to accommodate the squadId byte.
+    private static final int ENCODED_BYTE_LENGTH = 30;
 
     public PinInfo() {
         String fullUUID = UUID.randomUUID().toString();
         this.uniqueId = fullUUID.substring(0, 8);
+        this.squadId = 0; // Default to 0 (Global)
     }
 
+    // Getters
     public double getLatitude() { return latitude; }
-    public void setLatitude(double latitude) { this.latitude = latitude; }
     public double getLongitude() { return longitude; }
-    public void setLongitude(double longitude) { this.longitude = longitude; }
     public String getLabel() { return label; }
+    public byte getSquadId() { return squadId; }
+    public int getIconResourceId() { return iconResourceId; }
+    public int getColor() { return color; }
+    public int getElevation() { return elevation; }
+    public int getRotation() { return rotation; }
+    public String getUniqueId() { return uniqueId; }
+
+    // Setters
+    public void setLatitude(double latitude) { this.latitude = latitude; }
+    public void setLongitude(double longitude) { this.longitude = longitude; }
     public void setLabel(String label) {
         if (label != null && label.length() > MAX_LABEL_LENGTH) {
             this.label = label.substring(0, MAX_LABEL_LENGTH);
@@ -39,23 +51,20 @@ public class PinInfo {
             this.label = label;
         }
     }
-    public int getIconResourceId() { return iconResourceId; }
+    public void setSquadId(byte squadId){ this.squadId = squadId; }
     public void setIconResourceId(int iconResourceId) { this.iconResourceId = iconResourceId; }
-    public int getColor() { return color; }
     public void setColor(int color) { this.color = color; }
-    public int getElevation() { return elevation; }
     public void setElevation(int elevation) { this.elevation = elevation; }
-    public int getRotation() { return rotation; }
     public void setRotation(int rotation) { this.rotation = rotation; }
-    public String getUniqueId() { return uniqueId; }
     public void setUniqueId(String uniqueId) { this.uniqueId = uniqueId; }
+
 
     public byte[] encode() {
         ByteBuffer buffer = ByteBuffer.allocate(ENCODED_BYTE_LENGTH);
         buffer.order(ByteOrder.BIG_ENDIAN);
 
-        buffer.putInt((int) (this.latitude * 1E7));
-        buffer.putInt((int) (this.longitude * 1E7));
+        buffer.putInt((int) (this.latitude * 1E7)); // 4 bytes
+        buffer.putInt((int) (this.longitude * 1E7)); // 4 bytes
 
         byte[] labelBytes = new byte[8];
         String currentLabel = this.label;
@@ -83,32 +92,35 @@ public class PinInfo {
         labelBytes[5] = (byte) (((charVals[6] & 0x03) << 6) | charVals[7]);
         labelBytes[6] = (byte) ((charVals[8] << 2) | (charVals[9] >> 4));
         labelBytes[7] = (byte) ((charVals[9] & 0x0F) << 4);
+        buffer.put(labelBytes); // 8 bytes
 
-        buffer.put(labelBytes);
+        buffer.putShort((short) this.elevation); // 2 bytes
 
-        buffer.putShort((short) this.elevation);
+        // FIX: Encode the squadId
+        buffer.put(this.squadId); // 1 byte
 
         int iconVal = this.iconResourceId & 0x7F;
         int colorVal = this.color & 0x03;
         int rotationVal = this.rotation & 0x1FF;
         buffer.put((byte) ((iconVal << 1) | (colorVal >> 1)));
         buffer.put((byte) (((colorVal & 0x01) << 7) | (rotationVal >> 2)));
-        buffer.put((byte) ((rotationVal & 0x03) << 6));
+        buffer.put((byte) ((rotationVal & 0x03) << 6)); // 3 bytes
 
         byte[] uidBytes = new byte[8];
         if (this.uniqueId != null && !this.uniqueId.isEmpty()) {
             byte[] actualUidBytes = this.uniqueId.getBytes(StandardCharsets.UTF_8);
             System.arraycopy(actualUidBytes, 0, uidBytes, 0, Math.min(actualUidBytes.length, 8));
         }
-        buffer.put(uidBytes);
+        buffer.put(uidBytes); // 8 bytes
+        // Total = 4+4+8+2+1+3+8 = 30 bytes
 
         return buffer.array();
     }
 
     public void decode(byte[] data) {
-        if (data == null || data.length < ENCODED_BYTE_LENGTH) {
-            throw new IllegalArgumentException("Data array too short for PinInfo. Expected " +
-                    ENCODED_BYTE_LENGTH + " bytes, got " +
+        // Check against the original length for backward compatibility
+        if (data == null || data.length < 29) {
+            throw new IllegalArgumentException("Data array too short for PinInfo. Expected at least 29 bytes, got " +
                     (data == null ? "null" : data.length));
         }
         ByteBuffer buffer = ByteBuffer.wrap(data);
@@ -147,6 +159,13 @@ public class PinInfo {
         this.label = labelBuilder.toString();
 
         this.elevation = buffer.getShort();
+
+        // FIX: Decode the squadId, checking for buffer length to support old packets
+        if (data.length >= ENCODED_BYTE_LENGTH) {
+            this.squadId = buffer.get();
+        } else {
+            this.squadId = 0; // Default to global for old packets
+        }
 
         byte b1 = buffer.get();
         byte b2 = buffer.get();

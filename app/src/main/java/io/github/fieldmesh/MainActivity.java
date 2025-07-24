@@ -43,10 +43,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -115,6 +117,7 @@ import mil.nga.mgrs.grid.GridType;
 
 public class MainActivity extends AppCompatActivity implements LocationListener, SensorEventListener, MapEventsReceiver, MapListener {
     private static final String TAG = "FieldMeshMainActivity";
+    private String squadId = "Global";
 
     private IMeshService geeksvilleMeshServiceActivity;
     private boolean isGeeksvilleMeshServiceActivityBound = false;
@@ -132,7 +135,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     private ImageButton btnTileToggle, btnFollowToggle, btnRotateToggle, launchMeshtasticButton,
             addPinButton, addLineButton, addPolyButton, addCircleButton,
-            undoButton, closeButton, doneButton, infoButton, toggleGridButton, searchButton;
+            undoButton, closeButton, doneButton, infoButton, toggleGridButton, searchButton, squadButton;
     private LocationManager locationManager;
     private SensorManager sensorManager;
     private Sensor magnetometer, accelerometer, rotationVectorSensor;
@@ -142,7 +145,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private boolean isRotationEnabled = false;
     private AttributionOverlay attributionOverlay;
     private TextView tvSatelliteStatus, tvNumSatellites, tvAccuracy,
-            meshNodesTextView, myNodeIdTextView, meshStatusTextView, tvSyncStatus, mgrsPosTextView, mgrsTextTextView;
+            meshNodesTextView, myNodeIdTextView, meshStatusTextView, tvSyncStatus, mgrsPosTextView, mgrsTextTextView, tvSquad;
 
     private GnssStatus gnssStatus;
     private List<Marker> customPins = new ArrayList<>();
@@ -182,6 +185,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private MGRSOSMOverlay mgrsOverlay;
     private Boolean isGridOn = false;
     private ImageView mgrsCursor;
+    private final double iconSize = 0.1;
 
 
     private class AttributionOverlay extends Overlay {
@@ -337,7 +341,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         grids.setMaxZoom(GridType.GZD, 8);
         mgrsOverlay = new MGRSOSMOverlay(grids);
 
-
+        squadButton = findViewById(R.id.squadButton); // Make sure this ID matches your layout XML
         addPinButton = findViewById(R.id.btn_pin_add);
         addCircleButton = findViewById(R.id.btn_circle_add);
         addLineButton = findViewById(R.id.btn_line_add);
@@ -362,11 +366,36 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         mgrsTextTextView = findViewById(R.id.mgrsText);
         meshStatusTextView = findViewById(R.id.mesh_status);
         tvSyncStatus = findViewById(R.id.tv_sync_status);
+        tvSquad = findViewById(R.id.tv_squad);
 
         ImageButton toggleTools = findViewById(R.id.btn_Toggle_Tools);
         LinearLayout toolMenu = findViewById(R.id.tools_layout);
         LinearLayout editingTools = findViewById(R.id.editingTools);
         LinearLayout info = findViewById(R.id.info);
+
+        squadButton.setOnClickListener(v -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("Select Your Squad");
+
+            // Get the list of squad names from your SquadIndex class
+            List<String> squadNames = SquadIndex.getAllSquadNames();
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, squadNames);
+
+            builder.setAdapter(adapter, (dialog, which) -> {
+                String selectedSquad = squadNames.get(which);
+
+                // Update the global squadId variable
+                this.squadId = selectedSquad;
+
+                Toast.makeText(this, "Squad set to: " + selectedSquad, Toast.LENGTH_SHORT).show();
+                tvSquad.setText("Squad: " + selectedSquad);
+                // Refresh the map to apply the new filter
+                clearAndReloadMapData();
+            });
+
+            builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+            builder.create().show();
+        });
 
         toggleTools.setOnClickListener(v -> {
             if (toolMenu.getVisibility() == View.VISIBLE) {
@@ -603,7 +632,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             switch (IS_EDIT_MODE) {
                 case EDIT_MODE_LINE:
                     if (currentLinePoints.size() >= 2 && currentLinePoints.size() < 16) {
-                        showShapeColorSelectionDialog();
+                        showShapeSquadSelectionDialog();
                     } else if (currentLinePoints.size() < 2) {
                         Toast.makeText(this, "A line needs at least 2 points.", Toast.LENGTH_SHORT).show();
                     } else {
@@ -612,14 +641,14 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     break;
                 case EDIT_MODE_POLY:
                     if (currentPolygonPoints.size() >= 3) {
-                        showShapeColorSelectionDialog();
+                        showShapeSquadSelectionDialog();
                     } else {
                         Toast.makeText(this, "A polygon needs at least 3 points.", Toast.LENGTH_SHORT).show();
                     }
                     break;
                 case EDIT_MODE_CIRCLE:
                     if (pendingShapeCenter != null && pendingShapeRadius > 0.0) {
-                        showShapeColorSelectionDialog();
+                        showShapeSquadSelectionDialog();
                     } else if (circleCenter != null && pendingShapeRadius == 0.0) {
                         Toast.makeText(this, "Tap on the map to set the circle's radius.", Toast.LENGTH_SHORT).show();
                     }
@@ -838,7 +867,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 if (existingMarker != null) {
                     existingMarker.setPosition(nodePosition);
                 }
-                addCustomPin(nodePosition, R.drawable.radio, targetColorResId, node.getUser().getShortName(), nodeId);
+                addCustomPin(nodePosition, R.drawable.radio, targetColorResId, node.getUser().getShortName(), nodeId, this.iconSize, "Global");
             }
 
             List<Marker> pinsToRemove = new ArrayList<>();
@@ -954,7 +983,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                                 mapView.getOverlays().remove(temporaryCircleCenterMarker);
                                 temporaryCircleCenterMarker = null;
                             }
-                            showShapeColorSelectionDialog();
+                            showShapeSquadSelectionDialog();
                         } else {
                             Toast.makeText(this, "Radius too small. Tap further from center.", Toast.LENGTH_SHORT).show();
                         }
@@ -1051,7 +1080,49 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         mapView.invalidate();
     }
 
-    private void showShapeColorSelectionDialog() {
+    private void showShapeSquadSelectionDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Assign Shape to Squad");
+
+        // --- Create a custom layout with a spinner ---
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        final Spinner squadSpinner = new Spinner(this);
+        List<String> squadList = SquadIndex.getAllSquadNames();
+        ArrayAdapter<String> squadAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, squadList);
+        squadAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        squadSpinner.setAdapter(squadAdapter);
+        layout.addView(squadSpinner);
+
+        // --- Pre-select the current squad ---
+        int selectionIndex = 0;
+        String squadNameToSelect = (this.squadId == null) ? "Global" : this.squadId;
+        int foundIndex = squadList.indexOf(squadNameToSelect);
+        if (foundIndex != -1) {
+            selectionIndex = foundIndex;
+        }
+        squadSpinner.setSelection(selectionIndex);
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("Next", (dialog, which) -> {
+            String selectedSquadName = (String) squadSpinner.getSelectedItem();
+            byte squadIdToSet = SquadIndex.getIdByName(selectedSquadName);
+            showShapeColorSelectionDialog(squadIdToSet);
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> {
+            Toast.makeText(this, "Shape creation cancelled.", Toast.LENGTH_LONG).show();
+            clearAllTemporaryDrawingStates();
+            resetEditingMode();
+        });
+        builder.create().show();
+    }
+
+    private void showShapeColorSelectionDialog(final byte squadIdToSet) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Shape Color");
 
@@ -1066,15 +1137,18 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
             if (IS_EDIT_MODE == EDIT_MODE_CIRCLE && pendingShapeCenter != null && pendingShapeRadius > 0) {
                 CircleInfo circleInfo = new CircleInfo();
-                drawCircleOnMap(pendingShapeCenter, pendingShapeRadius, actualColorValue, circleInfo.getUniqueId());
+                circleInfo.setSquadId(squadIdToSet);
                 circleInfo.setLatitude(pendingShapeCenter.getLatitude());
                 circleInfo.setLongitude(pendingShapeCenter.getLongitude());
                 circleInfo.setRadius(pendingShapeRadius);
                 circleInfo.setColor(colorIndex);
+
+                drawCircleOnMap(pendingShapeCenter, pendingShapeRadius, actualColorValue, circleInfo.getUniqueId(), SquadIndex.getNameById(squadIdToSet));
+                mapDataDbHelper.addCircle(circleInfo);
+
                 if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
                     MeshtasticConnector.sendData(geeksvilleMeshServiceActivity, circleInfo.encode(), "CIRCLE", DataPacket.ID_BROADCAST);
                 }
-                mapDataDbHelper.addCircle(circleInfo);
                 Toast.makeText(this, "Circle added.", Toast.LENGTH_SHORT).show();
                 pendingShapeCenter = null;
                 pendingShapeRadius = 0.0;
@@ -1084,52 +1158,53 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     temporaryCircleCenterMarker = null;
                 }
                 dataChangedForWear = true;
+
             } else if (IS_EDIT_MODE == EDIT_MODE_LINE && currentLinePoints.size() >= 2) {
                 LineInfo lineInfo = new LineInfo();
-                drawFinalLine(new ArrayList<>(currentLinePoints), actualColorValue, lineInfo.getUniqueId());
+                lineInfo.setSquadId(squadIdToSet);
                 lineInfo.setPoints(currentLinePoints);
                 lineInfo.setColor(colorIndex);
+
+                drawFinalLine(new ArrayList<>(currentLinePoints), actualColorValue, lineInfo.getUniqueId(), SquadIndex.getNameById(squadIdToSet));
+                mapDataDbHelper.addLine(lineInfo);
+
                 if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
                     MeshtasticConnector.sendData(geeksvilleMeshServiceActivity, lineInfo.encode(), "LINE", DataPacket.ID_BROADCAST);
                 }
-                mapDataDbHelper.addLine(lineInfo);
                 Toast.makeText(this, "Line added.", Toast.LENGTH_SHORT).show();
                 clearTemporaryLineState();
                 dataChangedForWear = true;
+
             } else if (IS_EDIT_MODE == EDIT_MODE_POLY && currentPolygonPoints.size() >= 3) {
                 PolygonInfo polyInfo = new PolygonInfo();
-                drawFinalPolygon(new ArrayList<>(currentPolygonPoints), actualColorValue, polyInfo.getUniqueId());
+                polyInfo.setSquadId(squadIdToSet);
                 polyInfo.setPoints(currentPolygonPoints);
                 polyInfo.setColor(colorIndex);
+
+                drawFinalPolygon(new ArrayList<>(currentPolygonPoints), actualColorValue, polyInfo.getUniqueId(), SquadIndex.getNameById(polyInfo.getSquadId()));
+                mapDataDbHelper.addPolygon(polyInfo);
+
                 if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
                     MeshtasticConnector.sendData(geeksvilleMeshServiceActivity, polyInfo.encode(), "POLY", DataPacket.ID_BROADCAST);
                 }
-                mapDataDbHelper.addPolygon(polyInfo);
                 Toast.makeText(this, "Polygon added.", Toast.LENGTH_SHORT).show();
                 clearTemporaryPolygonState();
                 dataChangedForWear = true;
             }
+
             resetEditingMode();
 
             if (dataChangedForWear) {
                 Intent syncIntent = new Intent(this, MeshReceiverService.class);
                 syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
                 startService(syncIntent);
-                Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after shape add/modify.");
             }
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> {
             Toast.makeText(this, "Shape creation cancelled.", Toast.LENGTH_LONG).show();
-            if (IS_EDIT_MODE == EDIT_MODE_CIRCLE) {
-                if (temporaryCircleCenterMarker != null && pendingShapeRadius == 0.0) {
-                    mapView.getOverlays().remove(temporaryCircleCenterMarker);
-                    temporaryCircleCenterMarker = null;
-                }
-                circleCenter = null;
-                pendingShapeCenter = null;
-                pendingShapeRadius = 0.0;
-            }
+            clearAllTemporaryDrawingStates();
+            resetEditingMode();
         });
         builder.create().show();
     }
@@ -1166,7 +1241,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         if (mapView != null) mapView.invalidate();
     }
 
-    private void drawCircleOnMap(GeoPoint center, double radiusInMeters, int baseColor, String uuid) {
+    private void drawCircleOnMap(GeoPoint center, double radiusInMeters, int baseColor, String uuid, String squadName) {
         for (Polygon existingPoly : drawnPolygons) {
             if (uuid.equals(existingPoly.getId())) {
                 mapView.getOverlays().remove(existingPoly);
@@ -1250,6 +1325,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                         "Longitude (Center): " + String.format(Locale.US, "%.6f", displayLongitude) + "\n" +
                         "MGRS (Center): " + mgrsCoordinateString + "\n" +
                         "Perimeter: " + formattedPerimeter + "\n" +
+                        "Squad: " + squadName + "\n" +
                         "Area: " + formattedArea + "\n\n" +
                         "Remove this circle?";
 
@@ -1283,7 +1359,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     }
 
 
-    private void drawFinalLine(List<GeoPoint> points, int color, String uuid) {
+    private void drawFinalLine(List<GeoPoint> points, int color, String uuid, String squadName) {
         if (mapView == null || points == null || points.size() < 2) return;
 
         for (Polyline existingLine : drawnLines) {
@@ -1313,6 +1389,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
                 String message = "ID: " + polyline.getId() + "\n" +
                         "Length: " + formattedLength + "\n" +
+                        "Squad: " + squadName + "\n" +
                         "Remove this line?";
 
                 new AlertDialog.Builder(MainActivity.this)
@@ -1357,7 +1434,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         return totalLength;
     }
 
-    private void drawFinalPolygon(List<GeoPoint> points, int baseColor, String uuid) {
+    private void drawFinalPolygon(List<GeoPoint> points, int baseColor, String uuid, String squadName) {
         if (mapView == null || points == null || points.size() < 3) return;
 
         for (Polygon existingPoly : drawnPolygons) {
@@ -1394,6 +1471,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 String message = "ID: " + poly.getId() + "\n" +
                         "Perimeter: " + formattedPerimeter + "\n" +
                         "Area: " + formattedArea + "\n" +
+                        "Squad: " + squadName + "\n" +
                         "Remove this polygon?";
 
                 new AlertDialog.Builder(MainActivity.this)
@@ -1542,12 +1620,20 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     private void showPinLabelDialog(GeoPoint p, int iconResourceId, int colorResId) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Enter Pin Label (Max 10 chars)");
+        builder.setTitle("Add Pin");
+
+        // --- Create a custom layout programmatically ---
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        // 1. Add the Label EditText
         final EditText input = new EditText(this);
         InputFilter lengthFilter = new InputFilter.LengthFilter(10);
         InputFilter uppercaseAlnumFilter = (source, start, end, dest, dstart, dend) -> {
             StringBuilder filtered = new StringBuilder();
-            for (int i = start; i < end; i++) {
+            for (int i = 0; i < end; i++) {
                 char c = source.charAt(i);
                 if (Character.isLetterOrDigit(c) || c == ' ') {
                     filtered.append(Character.toUpperCase(c));
@@ -1558,15 +1644,47 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         input.setFilters(new InputFilter[]{lengthFilter, uppercaseAlnumFilter});
         input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
         input.setHint("e.g., TARGET1 (Optional)");
-        builder.setView(input);
+        layout.addView(input);
 
+        // 2. Add the Squad Spinner
+        TextView spinnerLabel = new TextView(this);
+        spinnerLabel.setText("Assign to Squad:");
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, (int) (16 * getResources().getDisplayMetrics().density), 0, 0);
+        spinnerLabel.setLayoutParams(params);
+        layout.addView(spinnerLabel);
+
+        final Spinner squadSpinner = new Spinner(this);
+        List<String> squadList = SquadIndex.getAllSquadNames();
+
+        ArrayAdapter<String> squadAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, squadList);
+        squadAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        squadSpinner.setAdapter(squadAdapter);
+        layout.addView(squadSpinner);
+
+        // --- Pre-select the current squad ---
+        int selectionIndex = 0; // Default to first item
+        String squadNameToSelect = (this.squadId == null) ? "Global" : this.squadId;
+        int foundIndex = squadList.indexOf(squadNameToSelect);
+        if (foundIndex != -1) {
+            selectionIndex = foundIndex;
+        }
+        squadSpinner.setSelection(selectionIndex);
+
+        builder.setView(layout);
+
+        // --- Set button listeners ---
         builder.setPositiveButton("Add Pin", (dialog, which) -> {
             String labelText = input.getText().toString().trim();
             if (labelText.isEmpty()) labelText = "PIN";
 
-            PinInfo pinInfo = new PinInfo();
-            addCustomPin(p, iconResourceId, colorResId, labelText, pinInfo.getUniqueId());
+            String selectedSquadName = (String) squadSpinner.getSelectedItem();
+            byte squadIdToSet = SquadIndex.getIdByName(selectedSquadName);
 
+            PinInfo pinInfo = new PinInfo();
             pinInfo.setLatitude(p.getLatitude());
             pinInfo.setLongitude(p.getLongitude());
             pinInfo.setLabel(labelText);
@@ -1574,25 +1692,28 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             pinInfo.setColor(ColorIndex.getIndexByColorId(colorResId));
             pinInfo.setElevation((int) p.getAltitude());
             pinInfo.setRotation(0);
+            pinInfo.setSquadId(squadIdToSet);
 
-            Log.d(TAG, "Pin lat: " + p.getLatitude() + ", lon: " + p.getLongitude());
+            addCustomPin(p, iconResourceId, colorResId, labelText, pinInfo.getUniqueId(), this.iconSize, SquadIndex.getNameById(squadIdToSet));
+            Log.d(TAG, "Pin added: " + pinInfo.getUniqueId() + " to Squad: " + selectedSquadName + " (ID: " + squadIdToSet + ")");
 
             mapDataDbHelper.addPin(pinInfo);
             if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
                 MeshtasticConnector.sendData(geeksvilleMeshServiceActivity, pinInfo.encode(), "PIN", DataPacket.ID_BROADCAST);
             }
-            Toast.makeText(this, "Pin added and sent.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Pin added to " + selectedSquadName, Toast.LENGTH_SHORT).show();
             resetEditingMode();
 
             Intent syncIntent = new Intent(this, MeshReceiverService.class);
             syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
             startService(syncIntent);
-            Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after pin add.");
         });
+
         builder.setNegativeButton("Cancel", (dialog, which) -> {
             Toast.makeText(MainActivity.this, "Pin creation cancelled.", Toast.LENGTH_SHORT).show();
             resetEditingMode();
         });
+
         builder.show();
     }
 
@@ -1621,7 +1742,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     }
 
 
-    Marker addCustomPin(GeoPoint position, int iconResourceId, int colorResId, String labelText, String uuid) {
+    Marker addCustomPin(GeoPoint position, int iconResourceId, int colorResId, String labelText, String uuid, double iconSize, String squadId) {
         if (mapView == null) {
             Log.e(TAG, "mapView is null in addCustomPin.");
             return null;
@@ -1651,6 +1772,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
             DrawableCompat.setTint(outlineDrawable, Color.BLACK);
             DrawableCompat.setTint(coloredDrawable, actualColor);
+
+            // --- MODIFICATION START ---
 
             float density = getResources().getDisplayMetrics().density;
             int baseIconSize = (int) (32 * density);
@@ -1733,16 +1856,17 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     double latitude = markerGeoPoint.getLatitude();
                     double longitude = markerGeoPoint.getLongitude();
 
-                    MGRS mgrsObject = null;
+                    // Assuming MGRS class is available
                     String mgrsCoordinateString = "N/A";
-                    try {
-                        mgrsObject = MGRS.from(longitude, latitude);
-                        mgrsCoordinateString = mgrsObject.coordinate();
-                    } catch (Exception e) {
 
-                        e.printStackTrace();
-                        mgrsCoordinateString = "Error converting MGRS";
-                    }
+                try {
+                    MGRS mgrsObject = MGRS.from(longitude, latitude);
+                    mgrsCoordinateString = mgrsObject.coordinate();
+                } catch (Exception e) {
+
+                    e.printStackTrace();
+                    mgrsCoordinateString = "Error converting MGRS";
+                }
 
 
 
@@ -1750,7 +1874,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                             "ID: " + marker.getId() + "\n" +
                             "Latitude: " + String.format("%.6f", latitude) + "\n" +
                             "Longitude: " + String.format("%.6f", longitude) + "\n" +
-                            "MGRS Coord: " + mgrsCoordinateString + "\n\n" +
+                            "MGRS Coord: " + mgrsCoordinateString + "\n" +
+                            "Squad: " + squadId + "\n\n" +
                             "Remove this pin?";
 
                     new AlertDialog.Builder(MainActivity.this)
@@ -1767,7 +1892,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 return true;
             });
         }
-
         mapView.getOverlays().add(customMarker);
         if (!customPins.contains(customMarker)) {
             customPins.add(customMarker);
@@ -1797,55 +1921,56 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     private void loadSavedPins() {
         if (mapDataDbHelper == null) return;
-        List<PinInfo> savedPins = mapDataDbHelper.getAllPins();
+        List<PinInfo> savedPins = mapDataDbHelper.getAllPins(squadId);
         Log.i(TAG, "Loading " + savedPins.size() + " saved pins...");
         for (PinInfo pinInfo : savedPins) {
             GeoPoint position = new GeoPoint(pinInfo.getLatitude(), pinInfo.getLongitude(), pinInfo.getElevation());
             int colorResId = ColorIndex.getColorByIndex(pinInfo.getColor());
             int iconResId = IconResIndex.getIconResIdbyIndex(pinInfo.getIconResourceId());
+            String squad = SquadIndex.getNameById(pinInfo.getSquadId());
             if (iconResId == -1) iconResId = R.drawable.pin;
-            addCustomPin(position, iconResId, colorResId, pinInfo.getLabel(), pinInfo.getUniqueId());
+            addCustomPin(position, iconResId, colorResId, pinInfo.getLabel(), pinInfo.getUniqueId(), this.iconSize, squad);
         }
     }
 
     private void loadSavedPolygons() {
         if (mapDataDbHelper == null) return;
-        List<PolygonInfo> savedPolygons = mapDataDbHelper.getAllPolygons();
+        List<PolygonInfo> savedPolygons = mapDataDbHelper.getAllPolygons(squadId);
         Log.i(TAG, "Loading " + savedPolygons.size() + " saved polygons...");
         for (PolygonInfo polygonInfo : savedPolygons) {
             List<GeoPoint> points = polygonInfo.getPoints();
             if (points != null && points.size() >=3) {
                 int colorResId = ColorIndex.getColorByIndex(polygonInfo.getColor());
                 int actualColorValue = ContextCompat.getColor(this, colorResId);
-                drawFinalPolygon(points, actualColorValue, polygonInfo.getUniqueId());
+                drawFinalPolygon(points, actualColorValue, polygonInfo.getUniqueId(), SquadIndex.getNameById(polygonInfo.getSquadId()));
             }
         }
     }
 
     private void loadSavedLines() {
         if (mapDataDbHelper == null) return;
-        List<LineInfo> savedLines = mapDataDbHelper.getAllLines();
+        List<LineInfo> savedLines = mapDataDbHelper.getAllLines(squadId);
         Log.i(TAG, "Loading " + savedLines.size() + " saved lines...");
         for (LineInfo lineInfo : savedLines) {
             List<GeoPoint> points = lineInfo.getPoints();
             if (points != null && points.size() >= 2) {
                 int colorResId = ColorIndex.getColorByIndex(lineInfo.getColor());
                 int actualColorValue = ContextCompat.getColor(this, colorResId);
-                drawFinalLine(points, actualColorValue, lineInfo.getUniqueId());
+                drawFinalLine(points, actualColorValue, lineInfo.getUniqueId(), SquadIndex.getNameById(lineInfo.getSquadId()));
             }
         }
     }
 
     private void loadSavedCircles() {
         if (mapDataDbHelper == null) return;
-        List<CircleInfo> savedCircles = mapDataDbHelper.getAllCircles();
+        List<CircleInfo> savedCircles = mapDataDbHelper.getAllCircles(squadId);
         Log.i(TAG, "Loading " + savedCircles.size() + " saved circles...");
         for (CircleInfo circleInfo : savedCircles) {
             GeoPoint center = new GeoPoint(circleInfo.getLatitude(), circleInfo.getLongitude());
             double radius = circleInfo.getRadius();
             int colorResId = ColorIndex.getColorByIndex(circleInfo.getColor());
             int actualColorValue = ContextCompat.getColor(this, colorResId);
-            drawCircleOnMap(center, radius, actualColorValue, circleInfo.getUniqueId());
+            drawCircleOnMap(center, radius, actualColorValue, circleInfo.getUniqueId(), SquadIndex.getNameById(circleInfo.getSquadId()));
         }
     }
 
@@ -2133,8 +2258,17 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private void enableLocationUpdates() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             try {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, this);
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000, 10, this);
+                if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, this);
+                } else if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                    // Fallback to network provider if GPS is not available
+                    locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000, 10, this);
+                    Toast.makeText(this, "GPS not available. Using network location.", Toast.LENGTH_LONG).show();
+                } else {
+                    // Handle the case where NO location provider is available
+                    Toast.makeText(this, "No location providers available. App functionality will be limited.", Toast.LENGTH_LONG).show();
+                    // Update the UI to reflect a "manual" or "spectator" mode
+                }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     locationManager.registerGnssStatusCallback(gnssStatusCallback, new Handler(Looper.getMainLooper()));
                 }

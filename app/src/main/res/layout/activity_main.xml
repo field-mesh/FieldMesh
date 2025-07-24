@@ -39,6 +39,14 @@
             android:textColor="@android:color/white" />
 
         <TextView
+            android:id="@+id/tv_squad"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Squad: Global"
+            android:textSize="12sp"
+            android:textColor="@android:color/white" />
+
+        <TextView
             android:id="@+id/tv_sync_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -311,6 +319,18 @@
         android:layout_marginLeft="16dp"
         android:visibility="visible"
         android:orientation="vertical">
+
+        <ImageButton
+            android:id="@+id/squadButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/squad"
+            android:layout_marginBottom="12dp"
+            android:padding="10dp"/>
 
         <ImageButton
             android:id="@+id/searchButton"
