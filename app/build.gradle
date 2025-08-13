@@ -165,6 +165,7 @@ dependencies {
     implementation(libs.bundles.osm)
     implementation(libs.osmdroid.geopackage){ exclude group: "com.j256.ormlite" }
     // do not update
+    implementation(libs.worldwind)
     //Individual dependencies
     implementation(libs.appintro)
     googleImplementation(libs.awesome.app.rating)
