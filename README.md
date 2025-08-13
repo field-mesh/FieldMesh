@@ -84,5 +84,5 @@ This was only tested using a max of 2 nodes if you have more please test and rep
 
 ## License
 
-This project is licensed under the GPL 3.0 License - see the `LICENSE.md` file for details.
+This project is licensed under the GPL 3.0 License - see the `LICENSE` file for details.
 
