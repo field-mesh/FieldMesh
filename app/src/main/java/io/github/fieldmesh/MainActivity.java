@@ -1601,7 +1601,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             }
         }
 
-        PlayAreaPolygon polygon = new PlayAreaPolygon(mapView);
+        PlayAreaPolygon polygon = new PlayAreaPolygon(mapView, 10.0f);
         polygon.setPoints(points);
         polygon.setId(uuid);
 
@@ -1611,8 +1611,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         Bitmap pattern = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
         Canvas patternCanvas = new Canvas(pattern);
         Paint patternPaint = new Paint();
-        patternPaint.setColor(Color.argb(80, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)));
-        patternPaint.setStrokeWidth(2f);
+        patternPaint.setColor(Color.argb(100, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)));
+        patternPaint.setStrokeWidth(9f);
+        polygon.setOutsideBackgroundColor(Color.argb(180, 0, 0, 0));
         for (int i = 0; i <= 100; i += 20) {
             patternCanvas.drawLine(i, 0, i, 100, patternPaint);
             patternCanvas.drawLine(0, i, 100, i, patternPaint);
