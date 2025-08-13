@@ -21,7 +21,7 @@ It's an ideal companion for outdoor enthusiasts, airsoft players, search and res
 
 * **Offline Map Support:** Auto cache maps by panning around the map or use your own Mbtile files.
 
-* **NASA WorldWind Demo:** Includes a simple globe view powered by NASA WorldWind.
+* **NASA WorldWind Mapping:** Map rendering powered by NASA WorldWind, supporting pins, lines and polygons.
 
 * **Search:** Search Lat and Lon.
 
