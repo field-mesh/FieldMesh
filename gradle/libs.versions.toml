@@ -54,6 +54,7 @@ zxing-core = "3.3.0"
 play-services-wearable = "19.0.0"
 activity = "1.10.1"
 play-services-location = "21.3.0" #do not update
+worldwind-android = "1.7.12"
 
 [libraries]
 agp = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -121,6 +122,7 @@ osmbonuspack = { group = "com.github.MKergall", name = "osmbonuspack", version.r
 osmdroid-android = { group = "org.osmdroid", name = "osmdroid-android", version.ref = "osmdroid-android" }
 osmdroid-geopackage = { group = "org.osmdroid", name = "osmdroid-geopackage", version.ref = "osmdroid-android" }
 osmdroid-wms = { group = "org.osmdroid", name = "osmdroid-wms", version.ref = "osmdroid-android" }
+worldwind = { group = "earth.worldwind", name = "worldwind-android", version.ref = "worldwind-android" }
 protobuf-gradle-plugin = { group = "com.google.protobuf", name = "protobuf-gradle-plugin", version.ref = "protobuf-gradle-plugin" }
 protobuf-kotlin = { group = "com.google.protobuf", name = "protobuf-kotlin", version.ref = "protobuf-kotlin" }
 protobuf-protoc = { group = "com.google.protobuf", name ="protoc", version.ref = "protobuf-kotlin" }
