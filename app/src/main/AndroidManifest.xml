@@ -36,10 +36,14 @@
             android:theme="@style/Theme.AppCompat.NoActionBar" />
         <activity
             android:name="io.github.fieldmesh.MainActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".WorldWindActivity"
+            android:label="WorldWind Demo"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
