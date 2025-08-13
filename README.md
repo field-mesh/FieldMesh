@@ -74,7 +74,7 @@ If you like what  I am doing become a member:
 
 ## Contributing
 
-Contributions are welcome! Still working on the details of this but fell free to add.
+Contributions are welcome! Still working on the details of this but feel free to add.
 
 ## Disclaimer
 
