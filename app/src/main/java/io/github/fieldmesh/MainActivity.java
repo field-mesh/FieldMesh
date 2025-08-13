@@ -13,7 +13,10 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -132,12 +135,13 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private static final int EDIT_MODE_LINE = 2;
     private static final int EDIT_MODE_POLY = 3;
     private static final int EDIT_MODE_CIRCLE = 4;
+    private static final int EDIT_MODE_PLAY_AREA = 5;
 
     private static MapView mapView = null;
     private IMapController mapController = null;
 
     private ImageButton btnTileToggle, btnFollowToggle, btnRotateToggle, launchMeshtasticButton,
-            addPinButton, addLineButton, addPolyButton, addCircleButton,
+            addPinButton, addLineButton, addPolyButton, addPlayAreaButton, addCircleButton,
             undoButton, closeButton, doneButton, infoButton, toggleGridButton, searchButton, squadButton;
     private LocationManager locationManager;
     private SensorManager sensorManager;
@@ -349,6 +353,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         addCircleButton = findViewById(R.id.btn_circle_add);
         addLineButton = findViewById(R.id.btn_line_add);
         addPolyButton = findViewById(R.id.btn_poly_add);
+        addPlayAreaButton = findViewById(R.id.btn_play_area_add);
         searchButton = findViewById(R.id.searchButton);
         undoButton = findViewById(R.id.undo);
         closeButton = findViewById(R.id.close);
@@ -569,6 +574,19 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             Toast.makeText(this, R.string.polyEditingMode, Toast.LENGTH_SHORT).show();
         });
 
+        addPlayAreaButton.setOnClickListener(v -> {
+            clearAllTemporaryDrawingStates();
+            IS_EDIT_MODE = EDIT_MODE_PLAY_AREA;
+            currentPolygonPoints.clear();
+            if (temporaryPolygonOverlay != null) mapView.getOverlays().remove(temporaryPolygonOverlay);
+            temporaryPolygonOverlay = null;
+            editingTools.setVisibility(View.VISIBLE);
+            info.setVisibility(View.GONE);
+            toolMenu.setVisibility(View.GONE);
+            toggleTools.setVisibility(View.GONE);
+            Toast.makeText(this, R.string.playAreaEditingMode, Toast.LENGTH_SHORT).show();
+        });
+
         addCircleButton.setOnClickListener(v -> {
             clearAllTemporaryDrawingStates();
             IS_EDIT_MODE = EDIT_MODE_CIRCLE;
@@ -604,6 +622,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                         Toast.makeText(this, "Last polygon point removed.", Toast.LENGTH_SHORT).show();
                     } else {
                         Toast.makeText(this, "No polygon points to remove.", Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+                case EDIT_MODE_PLAY_AREA:
+                    if (!currentPolygonPoints.isEmpty()) {
+                        currentPolygonPoints.remove(currentPolygonPoints.size() - 1);
+                        updateTemporaryPolygonOverlay();
+                        Toast.makeText(this, "Last play area point removed.", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "No play area points to remove.", Toast.LENGTH_SHORT).show();
                     }
                     break;
                 case EDIT_MODE_CIRCLE:
@@ -647,6 +674,13 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                         showShapeSquadSelectionDialog();
                     } else {
                         Toast.makeText(this, "A polygon needs at least 3 points.", Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+                case EDIT_MODE_PLAY_AREA:
+                    if (currentPolygonPoints.size() >= 3) {
+                        showShapeSquadSelectionDialog();
+                    } else {
+                        Toast.makeText(this, "A play area needs at least 3 points.", Toast.LENGTH_SHORT).show();
                     }
                     break;
                 case EDIT_MODE_CIRCLE:
@@ -983,6 +1017,16 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     }
                     handled = true;
                     break;
+                case EDIT_MODE_PLAY_AREA:
+                    if (currentPolygonPoints.size() < 15) {
+                        currentPolygonPoints.add(p);
+                        updateTemporaryPolygonOverlay();
+                        Toast.makeText(this, "Point " + currentPolygonPoints.size() + " added.", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Max 15 points for a play area.", Toast.LENGTH_SHORT).show();
+                    }
+                    handled = true;
+                    break;
                 case EDIT_MODE_CIRCLE:
                     if (circleCenter == null) {
                         circleCenter = p;
@@ -1216,6 +1260,22 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     MeshtasticConnector.sendData(geeksvilleMeshServiceActivity, polyInfo.encode(), "POLY", DataPacket.ID_BROADCAST);
                 }
                 Toast.makeText(this, "Polygon added.", Toast.LENGTH_SHORT).show();
+                clearTemporaryPolygonState();
+                dataChangedForWear = true;
+            } else if (IS_EDIT_MODE == EDIT_MODE_PLAY_AREA && currentPolygonPoints.size() >= 3) {
+                PolygonInfo playInfo = new PolygonInfo();
+                playInfo.setSquadId(squadIdToSet);
+                playInfo.setLabel("PLAY_AREA");
+                playInfo.setPoints(currentPolygonPoints);
+                playInfo.setColor(colorIndex);
+
+                drawPlayAreaPolygon(new ArrayList<>(currentPolygonPoints), actualColorValue, playInfo.getUniqueId(), SquadIndex.getNameById(playInfo.getSquadId()));
+                mapDataDbHelper.addPolygon(playInfo);
+
+                if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
+                    MeshtasticConnector.sendData(geeksvilleMeshServiceActivity, playInfo.encode(), "POLY", DataPacket.ID_BROADCAST);
+                }
+                Toast.makeText(this, "Play area added.", Toast.LENGTH_SHORT).show();
                 clearTemporaryPolygonState();
                 dataChangedForWear = true;
             }
@@ -1517,6 +1577,65 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                                 syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
                                 startService(syncIntent);
                                 Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after polygon removal.");
+                            }
+                            mv.invalidate();
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            }
+            return true;
+        });
+        mapView.getOverlays().add(0, polygon);
+        drawnPolygons.add(polygon);
+        mapView.invalidate();
+    }
+
+    private void drawPlayAreaPolygon(List<GeoPoint> points, int baseColor, String uuid, String squadName) {
+        if (mapView == null || points == null || points.size() < 3) return;
+
+        for (Polygon existingPoly : drawnPolygons) {
+            if (uuid.equals(existingPoly.getId())) {
+                mapView.getOverlays().remove(existingPoly);
+                drawnPolygons.remove(existingPoly);
+                break;
+            }
+        }
+
+        PlayAreaPolygon polygon = new PlayAreaPolygon(mapView);
+        polygon.setPoints(points);
+        polygon.setId(uuid);
+
+        polygon.getOutlinePaint().setColor(baseColor);
+        polygon.getOutlinePaint().setStrokeWidth(7f * getResources().getDisplayMetrics().density);
+
+        Bitmap pattern = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+        Canvas patternCanvas = new Canvas(pattern);
+        Paint patternPaint = new Paint();
+        patternPaint.setColor(Color.argb(80, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor)));
+        patternPaint.setStrokeWidth(2f);
+        for (int i = 0; i <= 100; i += 20) {
+            patternCanvas.drawLine(i, 0, i, 100, patternPaint);
+            patternCanvas.drawLine(0, i, 100, i, patternPaint);
+        }
+        polygon.setPatternBitmap(pattern);
+
+        polygon.setOnClickListener((poly, mv, eventPos) -> {
+            if (IS_EDIT_MODE == 0) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Play Area Options")
+                        .setMessage("Remove this play area?")
+                        .setPositiveButton("Remove", (d, w) -> {
+                            mv.getOverlays().remove(poly);
+                            drawnPolygons.remove(poly);
+                            if (poly.getId() != null) {
+                                mapDataDbHelper.softDeleteMapObject(poly.getId());
+                                if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
+                                    MeshtasticConnector.sendDeleteCommand(geeksvilleMeshServiceActivity, poly.getId());
+                                }
+                                Intent syncIntent = new Intent(this, MeshReceiverService.class);
+                                syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
+                                startService(syncIntent);
+                                Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after play area removal.");
                             }
                             mv.invalidate();
                         })
@@ -1970,7 +2089,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             if (points != null && points.size() >=3) {
                 int colorResId = ColorIndex.getColorByIndex(polygonInfo.getColor());
                 int actualColorValue = ContextCompat.getColor(this, colorResId);
-                drawFinalPolygon(points, actualColorValue, polygonInfo.getUniqueId(), SquadIndex.getNameById(polygonInfo.getSquadId()));
+                if ("PLAY_AREA".equals(polygonInfo.getLabel())) {
+                    drawPlayAreaPolygon(points, actualColorValue, polygonInfo.getUniqueId(), SquadIndex.getNameById(polygonInfo.getSquadId()));
+                } else {
+                    drawFinalPolygon(points, actualColorValue, polygonInfo.getUniqueId(), SquadIndex.getNameById(polygonInfo.getSquadId()));
+                }
             }
         }
     }

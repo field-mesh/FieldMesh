@@ -236,6 +236,18 @@
             android:contentDescription="Toggle Rotate/North Up" />
 
         <ImageButton
+            android:id="@+id/btn_play_area_add"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_round_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/area"
+            android:layout_marginRight="10dp"
+            android:padding="10dp"/>
+
+        <ImageButton
             android:id="@+id/btn_line_add"
             android:layout_width="48dp"
             android:layout_height="48dp"
