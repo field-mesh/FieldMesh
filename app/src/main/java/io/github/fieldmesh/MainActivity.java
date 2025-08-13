@@ -114,6 +114,9 @@ import mil.nga.mgrs.MGRS;
 import mil.nga.mgrs.grid.GridLabeler;
 import mil.nga.mgrs.grid.GridType;
 
+import android.view.InputDevice;
+import android.view.MotionEvent;
+
 
 public class MainActivity extends AppCompatActivity implements LocationListener, SensorEventListener, MapEventsReceiver, MapListener {
     private static final String TAG = "FieldMeshMainActivity";
@@ -668,6 +671,31 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
         setTileSourceInternal(TILE_SOURCE_OSM, null);
         mapView.setMultiTouchControls(true);
+        mapView.getController().setZoom(15.0);
+
+        mapView.setOnGenericMotionListener((v, event) -> {
+            // Check if the event is from a mouse and is a scroll action
+            if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
+                if (event.getAction() == MotionEvent.ACTION_SCROLL) {
+                    // A negative value means scrolling up (zoom in)
+                    // A positive value means scrolling down (zoom out)
+                    if (event.getAxisValue(MotionEvent.AXIS_VSCROLL) < 0.0f) {
+                        if (mapController != null) {
+                            mapController.zoomIn();
+                        }
+                    } else {
+                        if (mapController != null) {
+                            mapController.zoomOut();
+                        }
+                    }
+                    // Return true to indicate the event was handled
+                    return true;
+                }
+            }
+            // Return false if the event was not handled
+            return false;
+        });
+
         mapView.getController().setZoom(15.0);
         mapView.getZoomController().setVisibility(CustomZoomButtonsController.Visibility.NEVER);
 
