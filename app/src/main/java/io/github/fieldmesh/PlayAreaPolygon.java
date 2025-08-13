@@ -8,6 +8,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.Shader;
+import android.graphics.Region;
 import android.view.MotionEvent;
 
 import androidx.annotation.NonNull;
@@ -75,10 +76,10 @@ public class PlayAreaPolygon extends Polygon {
         mFillPaint = originalFill;
 
         if (mPath != null && mFillPaint != null) {
-            Path outside = new Path();
-            outside.addRect(0, 0, canvas.getWidth(), canvas.getHeight(), Path.Direction.CW);
-            outside.op(mPath, Path.Op.DIFFERENCE);
-            canvas.drawPath(outside, mFillPaint);
+            canvas.save();
+            canvas.clipPath(mPath, Region.Op.DIFFERENCE);
+            canvas.drawRect(0, 0, canvas.getWidth(), canvas.getHeight(), mFillPaint);
+            canvas.restore();
         }
     }
 
