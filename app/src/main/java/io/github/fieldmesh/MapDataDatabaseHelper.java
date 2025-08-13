@@ -844,6 +844,19 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         return rowsDeleted;
     }
 
+    /**
+     * Remove any existing play area polygon from the database. A play area is
+     * stored as a polygon with the label "PLAYAREA".
+     */
+    public void deletePlayArea() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(
+                TABLE_MAP_OBJECTS,
+                COLUMN_MO_OBJECT_TYPE + " = ? AND " + COLUMN_MO_LABEL + " = ?",
+                new String[]{OBJECT_TYPE_POLYGON, "PLAYAREA"}
+        );
+    }
+
 
     public String getDatabaseHash() {
         SQLiteDatabase db = null;
