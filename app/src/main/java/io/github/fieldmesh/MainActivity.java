@@ -132,12 +132,13 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private static final int EDIT_MODE_LINE = 2;
     private static final int EDIT_MODE_POLY = 3;
     private static final int EDIT_MODE_CIRCLE = 4;
+    private static final int EDIT_MODE_PLAY_AREA = 5;
 
     private static MapView mapView = null;
     private IMapController mapController = null;
 
     private ImageButton btnTileToggle, btnFollowToggle, btnRotateToggle, launchMeshtasticButton,
-            addPinButton, addLineButton, addPolyButton, addCircleButton,
+            addPinButton, addLineButton, addPolyButton, addCircleButton, addPlayAreaButton,
             undoButton, closeButton, doneButton, infoButton, toggleGridButton, searchButton, squadButton;
     private LocationManager locationManager;
     private SensorManager sensorManager;
@@ -170,6 +171,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private List<GeoPoint> currentPolygonPoints = new ArrayList<>();
     private Polygon temporaryPolygonOverlay;
     private List<Polygon> drawnPolygons = new ArrayList<>();
+    private Polygon playAreaMask;
+    private Polygon playAreaBoundary;
     private Handler periodicNodeUpdateHandler;
     private Runnable nodeUpdateRunnable;
     private static final long NODE_UPDATE_INTERVAL_MS = 10 * 1000;
@@ -349,6 +352,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         addCircleButton = findViewById(R.id.btn_circle_add);
         addLineButton = findViewById(R.id.btn_line_add);
         addPolyButton = findViewById(R.id.btn_poly_add);
+        addPlayAreaButton = findViewById(R.id.btn_playarea_add);
         searchButton = findViewById(R.id.searchButton);
         undoButton = findViewById(R.id.undo);
         closeButton = findViewById(R.id.close);
@@ -569,6 +573,19 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             Toast.makeText(this, R.string.polyEditingMode, Toast.LENGTH_SHORT).show();
         });
 
+        addPlayAreaButton.setOnClickListener(v -> {
+            clearAllTemporaryDrawingStates();
+            IS_EDIT_MODE = EDIT_MODE_PLAY_AREA;
+            currentPolygonPoints.clear();
+            if (temporaryPolygonOverlay != null) mapView.getOverlays().remove(temporaryPolygonOverlay);
+            temporaryPolygonOverlay = null;
+            editingTools.setVisibility(View.VISIBLE);
+            info.setVisibility(View.GONE);
+            toolMenu.setVisibility(View.GONE);
+            toggleTools.setVisibility(View.GONE);
+            Toast.makeText(this, R.string.playAreaEditingMode, Toast.LENGTH_SHORT).show();
+        });
+
         addCircleButton.setOnClickListener(v -> {
             clearAllTemporaryDrawingStates();
             IS_EDIT_MODE = EDIT_MODE_CIRCLE;
@@ -604,6 +621,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                         Toast.makeText(this, "Last polygon point removed.", Toast.LENGTH_SHORT).show();
                     } else {
                         Toast.makeText(this, "No polygon points to remove.", Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+                case EDIT_MODE_PLAY_AREA:
+                    if (!currentPolygonPoints.isEmpty()) {
+                        currentPolygonPoints.remove(currentPolygonPoints.size() - 1);
+                        updateTemporaryPolygonOverlay();
+                        Toast.makeText(this, "Last play area point removed.", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "No play area points to remove.", Toast.LENGTH_SHORT).show();
                     }
                     break;
                 case EDIT_MODE_CIRCLE:
@@ -647,6 +673,13 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                         showShapeSquadSelectionDialog();
                     } else {
                         Toast.makeText(this, "A polygon needs at least 3 points.", Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+                case EDIT_MODE_PLAY_AREA:
+                    if (currentPolygonPoints.size() >= 3) {
+                        showShapeColorSelectionDialog((byte)0);
+                    } else {
+                        Toast.makeText(this, R.string.playAreaNeedPoints, Toast.LENGTH_SHORT).show();
                     }
                     break;
                 case EDIT_MODE_CIRCLE:
@@ -983,6 +1016,16 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                     }
                     handled = true;
                     break;
+                case EDIT_MODE_PLAY_AREA:
+                    if (currentPolygonPoints.size() < 15) {
+                        currentPolygonPoints.add(p);
+                        updateTemporaryPolygonOverlay();
+                        Toast.makeText(this, "Point " + currentPolygonPoints.size() + " added.", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, R.string.playAreaMaxPoints, Toast.LENGTH_SHORT).show();
+                    }
+                    handled = true;
+                    break;
                 case EDIT_MODE_CIRCLE:
                     if (circleCenter == null) {
                         circleCenter = p;
@@ -1218,6 +1261,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 Toast.makeText(this, "Polygon added.", Toast.LENGTH_SHORT).show();
                 clearTemporaryPolygonState();
                 dataChangedForWear = true;
+            } else if (IS_EDIT_MODE == EDIT_MODE_PLAY_AREA && currentPolygonPoints.size() >= 3) {
+                drawPlayArea(new ArrayList<>(currentPolygonPoints), actualColorValue);
+                Toast.makeText(this, R.string.playAreaAdded, Toast.LENGTH_SHORT).show();
+                clearTemporaryPolygonState();
             }
 
             resetEditingMode();
@@ -1383,6 +1430,47 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
         mapView.getOverlays().add(0, circlePolygon);
         drawnPolygons.add(circlePolygon);
+        mapView.invalidate();
+    }
+
+    private void drawPlayArea(List<GeoPoint> points, int color) {
+        if (mapView == null || points == null || points.size() < 3) return;
+
+        if (playAreaMask != null) {
+            mapView.getOverlays().remove(playAreaMask);
+        }
+        if (playAreaBoundary != null) {
+            mapView.getOverlays().remove(playAreaBoundary);
+        }
+
+        List<GeoPoint> outer = new ArrayList<>();
+        outer.add(new GeoPoint(-85, -180));
+        outer.add(new GeoPoint(-85, 180));
+        outer.add(new GeoPoint(85, 180));
+        outer.add(new GeoPoint(85, -180));
+
+        Polygon mask = new Polygon(mapView);
+        mask.setPoints(outer);
+        List<List<GeoPoint>> holes = new ArrayList<>();
+        holes.add(new ArrayList<>(points));
+        mask.setHoles(holes);
+        int fillColor = Color.argb(100, Color.red(color), Color.green(color), Color.blue(color));
+        mask.getFillPaint().setColor(fillColor);
+        mask.getOutlinePaint().setColor(Color.TRANSPARENT);
+        mask.setInfoWindow(null);
+
+        Polygon boundary = new Polygon(mapView);
+        boundary.setPoints(new ArrayList<>(points));
+        boundary.getFillPaint().setColor(Color.TRANSPARENT);
+        boundary.getOutlinePaint().setColor(color);
+        boundary.getOutlinePaint().setStrokeWidth(7f * getResources().getDisplayMetrics().density);
+        boundary.setInfoWindow(null);
+
+        mapView.getOverlays().add(0, mask);
+        mapView.getOverlays().add(boundary);
+
+        playAreaMask = mask;
+        playAreaBoundary = boundary;
         mapView.invalidate();
     }
 
