@@ -1273,7 +1273,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 mapDataDbHelper.addPolygon(playInfo);
 
                 if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
-                    MeshtasticConnector.sendData(geeksvilleMeshServiceActivity, playInfo.encode(), "POLY", DataPacket.ID_BROADCAST);
+                    MeshtasticConnector.sendData(geeksvilleMeshServiceActivity, playInfo.encode(), "PLAY_AREA", DataPacket.ID_BROADCAST);
                 }
                 Toast.makeText(this, "Play area added.", Toast.LENGTH_SHORT).show();
                 clearTemporaryPolygonState();

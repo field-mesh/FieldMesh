@@ -388,8 +388,19 @@ public class MeshReceiverService extends Service implements MessageClient.OnMess
                                         case "PIN": PinInfo pin = mapDataDbHelper.getPin(uuidToSend); if (pin != null) MeshtasticConnector.sendData(geeksvilleMeshService, pin.encode(), "PIN", syncingWithNodeId); break;
                                         case "CIRCLE": CircleInfo circle = mapDataDbHelper.getCircle(uuidToSend); if (circle != null) MeshtasticConnector.sendData(geeksvilleMeshService, circle.encode(), "CIRCLE", syncingWithNodeId); break;
                                         case "LINE": LineInfo line = mapDataDbHelper.getLine(uuidToSend); if (line != null) MeshtasticConnector.sendData(geeksvilleMeshService, line.encode(), "LINE", syncingWithNodeId); break;
-                                        case "POLYGON": PolygonInfo polygon = mapDataDbHelper.getPolygon(uuidToSend); if (polygon != null) MeshtasticConnector.sendData(geeksvilleMeshService, polygon.encode(), "POLY", syncingWithNodeId); break;
-                                        default: Log.w(TAG, "ServiceReceiver: Unknown type '" + type + "' for UUID " + uuidToSend + " to send."); break;
+                                        case "POLYGON":
+                                            PolygonInfo polygon = mapDataDbHelper.getPolygon(uuidToSend);
+                                            if (polygon != null)
+                                                MeshtasticConnector.sendData(geeksvilleMeshService, polygon.encode(), "POLY", syncingWithNodeId);
+                                            break;
+                                        case "PLAY_AREA":
+                                            PolygonInfo playArea = mapDataDbHelper.getPolygon(uuidToSend);
+                                            if (playArea != null)
+                                                MeshtasticConnector.sendData(geeksvilleMeshService, playArea.encode(), "PLAY_AREA", syncingWithNodeId);
+                                            break;
+                                        default:
+                                            Log.w(TAG, "ServiceReceiver: Unknown type '" + type + "' for UUID " + uuidToSend + " to send.");
+                                            break;
                                     }
                                 } else {
                                     Log.w(TAG, "ServiceReceiver: Requested UUID " + uuidToSend + " not found or is already (soft)deleted locally, not sending.");
@@ -414,6 +425,7 @@ public class MeshReceiverService extends Service implements MessageClient.OnMess
                     case "PIN":
                     case "LINE":
                     case "POLY":
+                    case "PLAY_AREA":
                     case "CIRCLE":
                     case "SEND_UUID_DATA":
                         String actualItemUuid = null;
@@ -462,6 +474,18 @@ public class MeshReceiverService extends Service implements MessageClient.OnMess
                                     itemAdded = true;
                                 } else {
                                     Log.i(TAG, "ServiceReceiver: (Inner) POLYGON " + actualItemUuid + " from " + fromNodeId + " already exists. IGNORED.");
+                                }
+                                break;
+                            case "PLAY_AREA":
+                                PolygonInfo playAreaPoly = new PolygonInfo();
+                                playAreaPoly.decode(actualItemData);
+                                actualItemUuid = playAreaPoly.getUniqueId();
+                                if (!mapDataDbHelper.objectExists(actualItemUuid)) {
+                                    mapDataDbHelper.addPolygon(playAreaPoly);
+                                    Log.i(TAG, "ServiceReceiver: (Inner) PLAY_AREA " + actualItemUuid + " ADDED NEW from " + fromNodeId);
+                                    itemAdded = true;
+                                } else {
+                                    Log.i(TAG, "ServiceReceiver: (Inner) PLAY_AREA " + actualItemUuid + " from " + fromNodeId + " already exists. IGNORED.");
                                 }
                                 break;
                             case "CIRCLE":
