@@ -27,7 +27,7 @@ public class PolygonInfo extends MapItem {
     private static final int SQUAD_ID_LENGTH_BYTES = 1;
 
     // Update the base length to include the new squadId byte
-    private static final int BASE_ENCODED_LENGTH = UNIQUE_ID_LENGTH_BYTES + LABEL_ENCODED_LENGTH_BYTES + SQUAD_ID_LENGTH_BYTES + 1;
+    private static final int BASE_ENCODED_LENGTH = UNIQUE_ID_LENGTH_BYTES + LABEL_ENCODED_LENGTH_BYTES + SQUAD_ID_LENGTH_BYTES + 2;
     private static final int BYTES_PER_POINT = 4 + 4 + 2;
 
     public PolygonInfo() {
@@ -81,10 +81,11 @@ public class PolygonInfo extends MapItem {
         this.points = points != null ? new ArrayList<>(points) : new ArrayList<>();
     }
     public void setColor(int color) {
-        if (color >= 0 && color <= 3) {
+        int maxColor = ColorIndex.colors.size() - 1;
+        if (color >= 0 && color <= maxColor) {
             this.color = color;
         } else {
-            throw new IllegalArgumentException("Color value must be between 0 and 3.");
+            throw new IllegalArgumentException("Color value must be between 0 and " + maxColor + ".");
         }
     }
 
@@ -137,8 +138,11 @@ public class PolygonInfo extends MapItem {
         buffer.put(labelBytes);
 
         // Encode metadata
-        byte metadataByte = (byte) (((numPoints & 0x0F) << 4) | ((this.color & 0x03) << 2));
-        buffer.put(metadataByte);
+        int colorVal = this.color & 0x1F;
+        byte metadataByte1 = (byte) (((numPoints & 0x0F) << 4) | (colorVal & 0x0F));
+        byte metadataByte2 = (byte) ((colorVal >> 4) & 0x01);
+        buffer.put(metadataByte1);
+        buffer.put(metadataByte2);
 
         // Encode points
         if (this.points != null) {
@@ -174,7 +178,7 @@ public class PolygonInfo extends MapItem {
         this.uniqueId = new String(uidBytes, 0, uidLength, StandardCharsets.UTF_8);
 
         // Decode squadId - check buffer remaining to handle old packets without squadId
-        if(buffer.remaining() > (LABEL_ENCODED_LENGTH_BYTES + 1)){
+        if(buffer.remaining() > (LABEL_ENCODED_LENGTH_BYTES + 2)){
             this.squadId = buffer.get();
         } else {
             this.squadId = 0; // Default to global if squadId is not in the packet
@@ -210,12 +214,22 @@ public class PolygonInfo extends MapItem {
         this.label = labelBuilder.toString();
 
         // Decode metadata
-        byte metadataByte = buffer.get();
-        int numPoints = (metadataByte >> 4) & 0x0F;
-        this.color = (metadataByte >> 2) & 0x03;
+        byte metadataByte1 = buffer.get();
+        int numPoints = (metadataByte1 >> 4) & 0x0F;
+        int remainingAfterMeta1 = buffer.remaining();
+        if (remainingAfterMeta1 > numPoints * BYTES_PER_POINT) {
+            byte metadataByte2 = buffer.get();
+            int lowFour = metadataByte1 & 0x0F;
+            int highBit = metadataByte2 & 0x01;
+            this.color = (highBit << 4) | lowFour;
+        } else {
+            int lowTwo = (metadataByte1 >> 2) & 0x03;
+            int highBit = (metadataByte1 >> 1) & 0x01;
+            this.color = (highBit << 2) | lowTwo;
+        }
 
         // Calculate expected length based on if squadId was present
-        int expectedBaseLength = (buffer.position() == (UNIQUE_ID_LENGTH_BYTES + SQUAD_ID_LENGTH_BYTES + LABEL_ENCODED_LENGTH_BYTES + 1))
+        int expectedBaseLength = (buffer.position() == (UNIQUE_ID_LENGTH_BYTES + SQUAD_ID_LENGTH_BYTES + LABEL_ENCODED_LENGTH_BYTES + 2))
                 ? BASE_ENCODED_LENGTH
                 : ORIGINAL_BASE_LENGTH;
         int expectedMinDataLength = expectedBaseLength + (numPoints * BYTES_PER_POINT);
