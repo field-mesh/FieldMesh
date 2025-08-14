@@ -32,10 +32,8 @@
     <string name="rNameColorRed">Red</string>
     <string name="rNameColorYellow">Yellow</string>
     <string name="rNameColorBlack">Black</string>
-    <string name="rNameColorGreen">Green</string>
-    <string name="rNameColorBlue">Blue</string>
     <string name="charMaxSizeWarning">Your string must not exceed 10 characters.</string>
-    <string name="intValueRangeWarning">The color value should be between 0 and 5.</string>
+    <string name="intValueRangeWarning">The color value should be between 0 and 3.</string>
     <string name="lineTypeWarning">The line type value should be between 0 and 1.</string>
     <string name="lineMaxPointsWarning">The line must have a maximum of 15 points.</string>
     <string name="rotationWarning">The rotation value should be between 0 and 360.</string>
