@@ -1265,7 +1265,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             } else if (IS_EDIT_MODE == EDIT_MODE_PLAY_AREA && currentPolygonPoints.size() >= 3) {
                 PolygonInfo playInfo = new PolygonInfo();
                 playInfo.setSquadId(squadIdToSet);
-                playInfo.setLabel("PLAY_AREA");
+                playInfo.setLabel("PLAY AREA");
                 playInfo.setPoints(currentPolygonPoints);
                 playInfo.setColor(colorIndex);
 
@@ -2090,7 +2090,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             if (points != null && points.size() >=3) {
                 int colorResId = ColorIndex.getColorByIndex(polygonInfo.getColor());
                 int actualColorValue = ContextCompat.getColor(this, colorResId);
-                if ("PLAY_AREA".equals(polygonInfo.getLabel())) {
+                if ("PLAY AREA".equals(polygonInfo.getLabel())) {
                     drawPlayAreaPolygon(points, actualColorValue, polygonInfo.getUniqueId(), SquadIndex.getNameById(polygonInfo.getSquadId()));
                 } else {
                     drawFinalPolygon(points, actualColorValue, polygonInfo.getUniqueId(), SquadIndex.getNameById(polygonInfo.getSquadId()));

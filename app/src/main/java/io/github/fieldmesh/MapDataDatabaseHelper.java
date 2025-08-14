@@ -673,7 +673,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
                 objectType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MO_OBJECT_TYPE));
                 if (OBJECT_TYPE_POLYGON.equals(objectType)) {
                     String label = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MO_LABEL));
-                    if ("PLAY_AREA".equals(label)) {
+                    if ("PLAY AREA".equals(label)) {
                         objectType = "PLAY_AREA";
                     }
                 }
