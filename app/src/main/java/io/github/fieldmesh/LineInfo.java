@@ -28,7 +28,7 @@ public class LineInfo {
     // FIX: Added constant for the new squadId field
     private static final int SQUAD_ID_LENGTH_BYTES = 1;
     // FIX: Updated the base length to include the new squadId byte
-    private static final int BASE_ENCODED_LENGTH = UNIQUE_ID_LENGTH_BYTES + LABEL_ENCODED_LENGTH_BYTES + SQUAD_ID_LENGTH_BYTES + 1;
+    private static final int BASE_ENCODED_LENGTH = UNIQUE_ID_LENGTH_BYTES + LABEL_ENCODED_LENGTH_BYTES + SQUAD_ID_LENGTH_BYTES + 2;
     private static final int BYTES_PER_POINT = 4 + 4 + 2;
 
     public LineInfo() {
@@ -82,10 +82,11 @@ public class LineInfo {
         this.points = points != null ? new ArrayList<>(points) : new ArrayList<>();
     }
     public void setColor(int color) {
-        if (color >= 0 && color <= 3) {
+        int maxColor = ColorIndex.colors.size() - 1;
+        if (color >= 0 && color <= maxColor) {
             this.color = color;
         } else {
-            throw new IllegalArgumentException("Color value must be between 0 and 3.");
+            throw new IllegalArgumentException("Color value must be between 0 and " + maxColor + ".");
         }
     }
 
@@ -135,8 +136,11 @@ public class LineInfo {
         labelBytes[7] = (byte) (((charVals[9] & 0x0F) << 4));
         buffer.put(labelBytes);
 
-        byte metadataByte = (byte) (((numPoints & 0x0F) << 4) | ((this.color & 0x03) << 2));
-        buffer.put(metadataByte);
+        int colorVal = this.color & 0x1F;
+        byte metadataByte1 = (byte) (((numPoints & 0x0F) << 4) | (colorVal & 0x0F));
+        byte metadataByte2 = (byte) ((colorVal >> 4) & 0x01);
+        buffer.put(metadataByte1);
+        buffer.put(metadataByte2);
 
         if (this.points != null) {
             for (Coordinate point : this.points) {
@@ -168,8 +172,8 @@ public class LineInfo {
         this.uniqueId = new String(uidBytes, 0, uidLength, StandardCharsets.UTF_8);
 
         // FIX: Decode squadId, but check remaining bytes to see if it's an old packet
-        // (8 bytes for label + 1 for metadata = 9)
-        if (buffer.remaining() > (LABEL_ENCODED_LENGTH_BYTES + 1)) {
+        // (8 bytes for label + 2 for metadata = 10)
+        if (buffer.remaining() > (LABEL_ENCODED_LENGTH_BYTES + 2)) {
             this.squadId = buffer.get();
         } else {
             this.squadId = 0; // Default to Global for old packets
@@ -203,9 +207,19 @@ public class LineInfo {
         }
         this.label = labelBuilder.toString();
 
-        byte metadataByte = buffer.get();
-        int numPoints = (metadataByte >> 4) & 0x0F;
-        this.color = (metadataByte >> 2) & 0x03;
+        byte metadataByte1 = buffer.get();
+        int numPoints = (metadataByte1 >> 4) & 0x0F;
+        int remainingAfterMeta1 = buffer.remaining();
+        if (remainingAfterMeta1 > numPoints * BYTES_PER_POINT) {
+            byte metadataByte2 = buffer.get();
+            int lowFour = metadataByte1 & 0x0F;
+            int highBit = metadataByte2 & 0x01;
+            this.color = (highBit << 4) | lowFour;
+        } else {
+            int lowTwo = (metadataByte1 >> 2) & 0x03;
+            int highBit = (metadataByte1 >> 1) & 0x01;
+            this.color = (highBit << 2) | lowTwo;
+        }
 
         int expectedBaseLength = (this.squadId == 0 && buffer.position() <= ORIGINAL_BASE_LENGTH) ? ORIGINAL_BASE_LENGTH : BASE_ENCODED_LENGTH;
         int expectedMinDataLength = expectedBaseLength + (numPoints * BYTES_PER_POINT);

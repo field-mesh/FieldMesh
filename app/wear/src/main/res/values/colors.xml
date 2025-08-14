@@ -30,4 +30,19 @@
     <color name="toolbarBackground">#67EA94</color>
     <color name="toolbarText">#FFFFFF</color>
     <color name="yellow">#f1c40f</color>
+    <color name="blue">#3498db</color>
+    <color name="orange">#e67e22</color>
+    <color name="purple">#9b59b6</color>
+    <color name="pink">#fd79a8</color>
+    <color name="brown">#8e5b3a</color>
+    <color name="gray">#95a5a6</color>
+    <color name="cyan">#1abc9c</color>
+    <color name="magenta">#d4145a</color>
+    <color name="lime">#b6ff00</color>
+    <color name="navy">#34495e</color>
+    <color name="teal">#16a085</color>
+    <color name="maroon">#800000</color>
+    <color name="olive">#808000</color>
+    <color name="silver">#bdc3c7</color>
+    <color name="gold">#ffd700</color>
 </resources>

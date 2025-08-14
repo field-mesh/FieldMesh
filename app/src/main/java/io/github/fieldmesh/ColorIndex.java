@@ -10,14 +10,46 @@ public class ColorIndex {
             R.color.white,
             R.color.red,
             R.color.yellow,
-            R.color.black
+            R.color.black,
+            R.color.green,
+            R.color.blue,
+            R.color.orange,
+            R.color.purple,
+            R.color.pink,
+            R.color.brown,
+            R.color.gray,
+            R.color.cyan,
+            R.color.magenta,
+            R.color.lime,
+            R.color.navy,
+            R.color.teal,
+            R.color.maroon,
+            R.color.olive,
+            R.color.silver,
+            R.color.gold
     );
 
     public static List<Integer> colorsName = Arrays.asList(
             R.string.rNameColorWhite,
             R.string.rNameColorRed,
             R.string.rNameColorYellow,
-            R.string.rNameColorBlack
+            R.string.rNameColorBlack,
+            R.string.rNameColorGreen,
+            R.string.rNameColorBlue,
+            R.string.rNameColorOrange,
+            R.string.rNameColorPurple,
+            R.string.rNameColorPink,
+            R.string.rNameColorBrown,
+            R.string.rNameColorGray,
+            R.string.rNameColorCyan,
+            R.string.rNameColorMagenta,
+            R.string.rNameColorLime,
+            R.string.rNameColorNavy,
+            R.string.rNameColorTeal,
+            R.string.rNameColorMaroon,
+            R.string.rNameColorOlive,
+            R.string.rNameColorSilver,
+            R.string.rNameColorGold
     );
 
     public static List<ColorItem> getColorItemsList() {
