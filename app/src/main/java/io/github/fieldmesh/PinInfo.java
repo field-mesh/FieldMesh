@@ -53,7 +53,14 @@ public class PinInfo {
     }
     public void setSquadId(byte squadId){ this.squadId = squadId; }
     public void setIconResourceId(int iconResourceId) { this.iconResourceId = iconResourceId; }
-    public void setColor(int color) { this.color = color; }
+    public void setColor(int color) {
+        int maxColor = ColorIndex.colors.size() - 1;
+        if (color >= 0 && color <= maxColor) {
+            this.color = color;
+        } else {
+            throw new IllegalArgumentException("Color value must be between 0 and " + maxColor + ".");
+        }
+    }
     public void setElevation(int elevation) { this.elevation = elevation; }
     public void setRotation(int rotation) { this.rotation = rotation; }
     public void setUniqueId(String uniqueId) { this.uniqueId = uniqueId; }
@@ -100,11 +107,14 @@ public class PinInfo {
         buffer.put(this.squadId); // 1 byte
 
         int iconVal = this.iconResourceId & 0x7F;
-        int colorVal = this.color & 0x03;
+        int colorVal = this.color & 0x07;
         int rotationVal = this.rotation & 0x1FF;
-        buffer.put((byte) ((iconVal << 1) | (colorVal >> 1)));
-        buffer.put((byte) (((colorVal & 0x01) << 7) | (rotationVal >> 2)));
-        buffer.put((byte) ((rotationVal & 0x03) << 6)); // 3 bytes
+        int c0 = colorVal & 0x01;
+        int c1 = (colorVal >> 1) & 0x01;
+        int c2 = (colorVal >> 2) & 0x01;
+        buffer.put((byte) ((iconVal << 1) | c1));
+        buffer.put((byte) ((c0 << 7) | (rotationVal >> 2)));
+        buffer.put((byte) (((rotationVal & 0x03) << 6) | (c2 << 5))); // 3 bytes
 
         byte[] uidBytes = new byte[8];
         if (this.uniqueId != null && !this.uniqueId.isEmpty()) {
@@ -171,7 +181,10 @@ public class PinInfo {
         byte b2 = buffer.get();
         byte b3 = buffer.get();
         this.iconResourceId = (b1 >> 1) & 0x7F;
-        this.color = ((b1 & 0x01) << 1) | (((b2 & 0xFF) >>> 7) & 0x01);
+        int c1 = b1 & 0x01;
+        int c0 = ((b2 & 0xFF) >>> 7) & 0x01;
+        int c2 = ((b3 & 0xFF) >>> 5) & 0x01;
+        this.color = (c2 << 2) | (c1 << 1) | c0;
         this.rotation = ((b2 & 0x7F) << 2) | (((b3 & 0xFF) >>> 6) & 0x03);
 
         byte[] uidBytes = new byte[8];

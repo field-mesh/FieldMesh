@@ -82,10 +82,11 @@ public class LineInfo {
         this.points = points != null ? new ArrayList<>(points) : new ArrayList<>();
     }
     public void setColor(int color) {
-        if (color >= 0 && color <= 3) {
+        int maxColor = ColorIndex.colors.size() - 1;
+        if (color >= 0 && color <= maxColor) {
             this.color = color;
         } else {
-            throw new IllegalArgumentException("Color value must be between 0 and 3.");
+            throw new IllegalArgumentException("Color value must be between 0 and " + maxColor + ".");
         }
     }
 
@@ -135,7 +136,9 @@ public class LineInfo {
         labelBytes[7] = (byte) (((charVals[9] & 0x0F) << 4));
         buffer.put(labelBytes);
 
-        byte metadataByte = (byte) (((numPoints & 0x0F) << 4) | ((this.color & 0x03) << 2));
+        int lowTwo = this.color & 0x03;
+        int highBit = (this.color & 0x04) >> 2;
+        byte metadataByte = (byte) (((numPoints & 0x0F) << 4) | (lowTwo << 2) | (highBit << 1));
         buffer.put(metadataByte);
 
         if (this.points != null) {
@@ -205,7 +208,9 @@ public class LineInfo {
 
         byte metadataByte = buffer.get();
         int numPoints = (metadataByte >> 4) & 0x0F;
-        this.color = (metadataByte >> 2) & 0x03;
+        int lowTwo = (metadataByte >> 2) & 0x03;
+        int highBit = (metadataByte >> 1) & 0x01;
+        this.color = (highBit << 2) | lowTwo;
 
         int expectedBaseLength = (this.squadId == 0 && buffer.position() <= ORIGINAL_BASE_LENGTH) ? ORIGINAL_BASE_LENGTH : BASE_ENCODED_LENGTH;
         int expectedMinDataLength = expectedBaseLength + (numPoints * BYTES_PER_POINT);
