@@ -1269,6 +1269,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 playInfo.setPoints(currentPolygonPoints);
                 playInfo.setColor(colorIndex);
 
+                removeExistingPlayAreas(playInfo.getUniqueId());
                 drawPlayAreaPolygon(new ArrayList<>(currentPolygonPoints), actualColorValue, playInfo.getUniqueId(), SquadIndex.getNameById(playInfo.getSquadId()));
                 mapDataDbHelper.addPolygon(playInfo);
 
@@ -1588,6 +1589,39 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         mapView.getOverlays().add(0, polygon);
         drawnPolygons.add(polygon);
         mapView.invalidate();
+    }
+
+    private void removeExistingPlayAreas(String uuidToKeep) {
+        // Remove existing play area overlays from map
+        List<Polygon> polygonsToRemove = new ArrayList<>();
+        for (Polygon poly : drawnPolygons) {
+            if (poly instanceof PlayAreaPolygon && (uuidToKeep == null || !uuidToKeep.equals(poly.getId()))) {
+                polygonsToRemove.add(poly);
+            }
+        }
+        for (Polygon poly : polygonsToRemove) {
+            mapView.getOverlays().remove(poly);
+            drawnPolygons.remove(poly);
+        }
+        if (!polygonsToRemove.isEmpty()) {
+            mapView.invalidate();
+        }
+
+        // Remove existing play area entries from database and notify peers
+        if (mapDataDbHelper != null) {
+            List<String> removedUuids = mapDataDbHelper.removeAllPlayAreasExcept(uuidToKeep);
+            for (String removedUuid : removedUuids) {
+                if (isGeeksvilleMeshServiceActivityBound && geeksvilleMeshServiceActivity != null) {
+                    MeshtasticConnector.sendDeleteCommand(geeksvilleMeshServiceActivity, removedUuid);
+                }
+            }
+            if (!removedUuids.isEmpty()) {
+                Intent syncIntent = new Intent(this, MeshReceiverService.class);
+                syncIntent.setAction(MeshReceiverService.ACTION_TRIGGER_WEAR_MAP_SYNC);
+                startService(syncIntent);
+                Log.d(TAG, "Sent ACTION_TRIGGER_WEAR_MAP_SYNC to MeshReceiverService after play area removal.");
+            }
+        }
     }
 
     private void drawPlayAreaPolygon(List<GeoPoint> points, int baseColor, String uuid, String squadName) {
@@ -2085,16 +2119,35 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         if (mapDataDbHelper == null) return;
         List<PolygonInfo> savedPolygons = mapDataDbHelper.getAllPolygons(squadId);
         Log.i(TAG, "Loading " + savedPolygons.size() + " saved polygons...");
+
+        PolygonInfo playAreaToDraw = null;
+        List<PolygonInfo> regularPolygons = new ArrayList<>();
         for (PolygonInfo polygonInfo : savedPolygons) {
+            if ("PLAY AREA".equals(polygonInfo.getLabel())) {
+                playAreaToDraw = polygonInfo; // Keep the last play area encountered
+            } else {
+                regularPolygons.add(polygonInfo);
+            }
+        }
+
+        // Draw regular polygons first
+        for (PolygonInfo polygonInfo : regularPolygons) {
             List<GeoPoint> points = polygonInfo.getPoints();
             if (points != null && points.size() >=3) {
                 int colorResId = ColorIndex.getColorByIndex(polygonInfo.getColor());
                 int actualColorValue = ContextCompat.getColor(this, colorResId);
-                if ("PLAY AREA".equals(polygonInfo.getLabel())) {
-                    drawPlayAreaPolygon(points, actualColorValue, polygonInfo.getUniqueId(), SquadIndex.getNameById(polygonInfo.getSquadId()));
-                } else {
-                    drawFinalPolygon(points, actualColorValue, polygonInfo.getUniqueId(), SquadIndex.getNameById(polygonInfo.getSquadId()));
-                }
+                drawFinalPolygon(points, actualColorValue, polygonInfo.getUniqueId(), SquadIndex.getNameById(polygonInfo.getSquadId()));
+            }
+        }
+
+        // Ensure only one play area exists and draw it
+        if (playAreaToDraw != null) {
+            removeExistingPlayAreas(playAreaToDraw.getUniqueId());
+            List<GeoPoint> points = playAreaToDraw.getPoints();
+            if (points != null && points.size() >=3) {
+                int colorResId = ColorIndex.getColorByIndex(playAreaToDraw.getColor());
+                int actualColorValue = ContextCompat.getColor(this, colorResId);
+                drawPlayAreaPolygon(points, actualColorValue, playAreaToDraw.getUniqueId(), SquadIndex.getNameById(playAreaToDraw.getSquadId()));
             }
         }
     }

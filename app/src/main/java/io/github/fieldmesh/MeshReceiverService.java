@@ -480,6 +480,7 @@ public class MeshReceiverService extends Service implements MessageClient.OnMess
                                 PolygonInfo playAreaPoly = new PolygonInfo();
                                 playAreaPoly.decode(actualItemData);
                                 actualItemUuid = playAreaPoly.getUniqueId();
+                                mapDataDbHelper.removeAllPlayAreasExcept(actualItemUuid);
                                 if (!mapDataDbHelper.objectExists(actualItemUuid)) {
                                     mapDataDbHelper.addPolygon(playAreaPoly);
                                     Log.i(TAG, "ServiceReceiver: (Inner) PLAY_AREA " + actualItemUuid + " ADDED NEW from " + fromNodeId);

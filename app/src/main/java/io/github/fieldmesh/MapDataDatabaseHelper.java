@@ -850,6 +850,42 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         return rowsDeleted;
     }
 
+    /**
+     * Soft delete all play area entries except the one whose uniqueId matches {@code uniqueIdToKeep}.
+     *
+     * @param uniqueIdToKeep Unique identifier of the play area that should remain; may be {@code null} to remove all.
+     * @return List of uniqueIds that were removed.
+     */
+    public List<String> removeAllPlayAreasExcept(String uniqueIdToKeep) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        List<String> removedUuids = new ArrayList<>();
+
+        String selection = COLUMN_MO_OBJECT_TYPE + " = ? AND " + COLUMN_MO_LABEL + " = ?";
+        List<String> argsList = new ArrayList<>();
+        argsList.add(OBJECT_TYPE_POLYGON);
+        argsList.add("PLAY AREA");
+        if (uniqueIdToKeep != null) {
+            selection += " AND " + COLUMN_MO_UNIQUE_ID + " != ?";
+            argsList.add(uniqueIdToKeep);
+        }
+        String[] selectionArgs = argsList.toArray(new String[0]);
+
+        Cursor cursor = db.query(TABLE_MAP_OBJECTS, new String[]{COLUMN_MO_UNIQUE_ID}, selection, selectionArgs, null, null, null);
+        while (cursor.moveToNext()) {
+            removedUuids.add(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MO_UNIQUE_ID)));
+        }
+        cursor.close();
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_MO_IS_DELETED, 1);
+        db.update(TABLE_MAP_OBJECTS, values, selection, selectionArgs);
+
+        if (!removedUuids.isEmpty()) {
+            Log.i(TAG, "Removed " + removedUuids.size() + " existing play area(s) from database.");
+        }
+        return removedUuids;
+    }
+
 
     public String getDatabaseHash() {
         SQLiteDatabase db = null;
