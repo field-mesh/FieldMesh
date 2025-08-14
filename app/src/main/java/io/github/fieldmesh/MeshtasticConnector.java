@@ -26,7 +26,8 @@ public class MeshtasticConnector {
             (byte) 0x08,
             (byte) 0x09,
             (byte) 0x0A,
-            (byte) 0x0B
+            (byte) 0x0B,
+            (byte) 0x0C
 
     );
 
@@ -41,7 +42,8 @@ public class MeshtasticConnector {
             "SEND_UUID_LIST",
             "REQUEST_UUID_DATA",
             "SEND_UUID_DATA",
-            "FINISH_SYNC"
+            "FINISH_SYNC",
+            "PLAY_AREA"
     );
 
 

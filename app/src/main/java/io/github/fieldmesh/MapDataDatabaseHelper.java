@@ -655,7 +655,7 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
         String objectType = null;
 
         try {
-            String[] columns = {COLUMN_MO_OBJECT_TYPE};
+            String[] columns = {COLUMN_MO_OBJECT_TYPE, COLUMN_MO_LABEL};
             String selection = COLUMN_MO_UNIQUE_ID + " = ?";
             String[] selectionArgs = {uniqueId};
 
@@ -671,6 +671,12 @@ public class MapDataDatabaseHelper extends SQLiteOpenHelper {
 
             if (cursor != null && cursor.moveToFirst()) {
                 objectType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MO_OBJECT_TYPE));
+                if (OBJECT_TYPE_POLYGON.equals(objectType)) {
+                    String label = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MO_LABEL));
+                    if ("PLAY_AREA".equals(label)) {
+                        objectType = "PLAY_AREA";
+                    }
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Error getting object type for uniqueId '" + uniqueId + "': " + e.getMessage(), e);
