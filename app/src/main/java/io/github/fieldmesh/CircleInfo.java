@@ -46,11 +46,10 @@ public class CircleInfo {
     public void setRadius(double radius) { this.radius = radius; }
     public void setSquadId(byte squadId) { this.squadId = squadId; }
     public void setColor(int color) {
-        int maxColor = ColorIndex.colors.size() - 1;
-        if (color >= 0 && color <= maxColor) {
+        if (color >= 0 && color <= 3) {
             this.color = color;
         } else {
-            throw new IllegalArgumentException("Color value must be between 0 and " + maxColor + ".");
+            throw new IllegalArgumentException(String.valueOf(io.github.fieldmesh.R.string.intValueRangeWarning));
         }
     }
     public void setLineType(int lineType) {
@@ -109,9 +108,7 @@ public class CircleInfo {
 
         buffer.putShort((short) this.elevation); // 2 bytes
 
-        int lowTwo = this.color & 0x03;
-        int highBit = (this.color & 0x04) << 1;
-        byte packedColorLineType = (byte) (highBit | (lowTwo << 1) | (this.lineType & 0x01));
+        byte packedColorLineType = (byte) (((this.color & 0x03) << 1) | (this.lineType & 0x01));
         buffer.put(packedColorLineType); // 1 byte
 
         // FIX: Encode the squadId byte
@@ -174,9 +171,7 @@ public class CircleInfo {
         this.elevation = buffer.getShort();
 
         byte packedColorLineType = buffer.get();
-        int lowTwo = (packedColorLineType >> 1) & 0x03;
-        int highBit = (packedColorLineType >> 3) & 0x01;
-        this.color = (highBit << 2) | lowTwo;
+        this.color = (packedColorLineType >> 1) & 0x03;
         this.lineType = packedColorLineType & 0x01;
 
         // FIX: Decode squadId, checking for buffer length to support old packets

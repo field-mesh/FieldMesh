@@ -10,18 +10,14 @@ public class ColorIndex {
             R.color.white,
             R.color.red,
             R.color.yellow,
-            R.color.black,
-            R.color.green,
-            R.color.blue
+            R.color.black
     );
 
     public static List<Integer> colorsName = Arrays.asList(
             R.string.rNameColorWhite,
             R.string.rNameColorRed,
             R.string.rNameColorYellow,
-            R.string.rNameColorBlack,
-            R.string.rNameColorGreen,
-            R.string.rNameColorBlue
+            R.string.rNameColorBlack
     );
 
     public static List<ColorItem> getColorItemsList() {
